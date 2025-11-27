@@ -32,12 +32,7 @@ func (uh UpdateHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	metricType := r.PathValue("type")
 	name := r.PathValue("name")
 	value := r.PathValue("value")
-
-	if name == "" {
-		w.WriteHeader(http.StatusNotFound)
-		return
-	}
-
+	
 	fmt.Printf("received metric: type: %s, name: %s, value: %v", metricType, name, value)
 
 	switch metricType {
@@ -68,5 +63,6 @@ func (uh UpdateHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 }
