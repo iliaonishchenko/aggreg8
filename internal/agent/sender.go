@@ -37,26 +37,15 @@ func (s *Sender) Send(metrics []*models.Metrics) {
 
 func (s *Sender) sendMetric(metric *models.Metrics) (*http.Response, error) {
 	metricURL := s.buildMetricURL(s.endpoint, metric)
+
 	return s.client.Post(metricURL, "text/plain", nil)
 }
 
 func (s *Sender) buildMetricURL(baseURL string, metric *models.Metrics) string {
-	var finalUrl string
-	switch metric.MType {
-	case models.Gauge:
-		finalUrl = fmt.Sprintf("%s/update/%s/%s/%s",
-			baseURL,
-			url.PathEscape(metric.MType),
-			url.PathEscape(metric.ID),
-			url.PathEscape(fmt.Sprintf("%f", *metric.Value)),
-		)
-	case models.Counter:
-		finalUrl = fmt.Sprintf("%s/update/%s/%s/%s",
-			baseURL,
-			url.PathEscape(metric.MType),
-			url.PathEscape(metric.ID),
-			url.PathEscape(strconv.FormatInt(*metric.Delta, 10)),
-		)
-	}
-	return finalUrl
+	return fmt.Sprintf("%s/update/%s/%s/%s",
+		baseURL,
+		url.PathEscape(metric.MType),
+		url.PathEscape(metric.ID),
+		url.PathEscape(strconv.FormatFloat(*metric.Value, 'f', -1, 64)),
+	)
 }
