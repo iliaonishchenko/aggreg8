@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	models "github.com/iliaonishchenko/aggreg8/internal/model"
 	"github.com/iliaonishchenko/aggreg8/internal/service"
 	"net/http"
@@ -36,6 +37,8 @@ func (uh UpdateHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
+
+	fmt.Printf("received metric: type: %s, name: %s, value: %v", metricType, name, value)
 
 	switch metricType {
 	case models.Gauge:
