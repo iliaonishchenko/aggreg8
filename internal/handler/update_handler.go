@@ -2,6 +2,7 @@ package handler
 
 import (
 	"fmt"
+	"github.com/go-chi/chi/v5"
 	models "github.com/iliaonishchenko/aggreg8/internal/model"
 	"github.com/iliaonishchenko/aggreg8/internal/service"
 	"net/http"
@@ -18,22 +19,18 @@ func NewUpdateHandler(memStorage service.MetricStorage) *UpdateHandler {
 	}
 }
 
-func (uh UpdateHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
+func (uh UpdateHandler) HandleUpdate(w http.ResponseWriter, r *http.Request) {
 
-	if r.Header.Get("Content-Type") != "text/plain" {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
+	metricType := chi.URLParam(r, "type")
+	name := chi.URLParam(r, "name")
+	value := chi.URLParam(r, "value")
 
-	metricType := r.PathValue("type")
-	name := r.PathValue("name")
-	value := r.PathValue("value")
-	
 	fmt.Printf("received metric: type: %s, name: %s, value: %v", metricType, name, value)
+
+	if name == "" {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
 
 	switch metricType {
 	case models.Gauge:
@@ -42,8 +39,9 @@ func (uh UpdateHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		err = uh.memStorage.UpdateGauge(name, parsedValue)
-		if err != nil {
+		metric := models.Metrics{ID: name, MType: models.Gauge, Value: &parsedValue}
+		ok := uh.memStorage.UpdateMetric(&metric)
+		if !ok {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -53,8 +51,12 @@ func (uh UpdateHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		err = uh.memStorage.UpdateCounter(name, parsedValue)
-		if err != nil {
+		floatValue := float64(parsedValue)
+		delta := int64(1)
+
+		metric := models.Metrics{ID: name, MType: models.Counter, Delta: &delta, Value: &floatValue}
+		ok := uh.memStorage.UpdateMetric(&metric)
+		if !ok {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
