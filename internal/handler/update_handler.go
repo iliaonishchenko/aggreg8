@@ -51,10 +51,9 @@ func (uh UpdateHandler) HandleUpdate(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		floatValue := float64(parsedValue)
-		delta := int64(1)
 
-		metric := models.Metrics{ID: name, MType: models.Counter, Delta: &delta, Value: &floatValue}
+		delta := parsedValue
+		metric := models.Metrics{ID: name, MType: models.Counter, Delta: &delta}
 		ok := uh.memStorage.UpdateMetric(&metric)
 		if !ok {
 			w.WriteHeader(http.StatusInternalServerError)

@@ -34,9 +34,7 @@ func (amh *AllMetricsHandler) HandleAll(w http.ResponseWriter, r *http.Request) 
 
 		if metric.MType == models.Gauge && metric.Value != nil {
 			html.WriteString(fmt.Sprintf("<td>%g</td>", *metric.Value))
-		} else if metric.MType == models.Counter && metric.Value != nil {
-			html.WriteString(fmt.Sprintf("<td>%d</td>", int64(*metric.Value)))
-		} else if metric.Delta != nil {
+		} else if metric.MType == models.Counter && metric.Delta != nil {
 			html.WriteString(fmt.Sprintf("<td>%d</td>", *metric.Delta))
 		} else {
 			html.WriteString("<td>-</td>")
