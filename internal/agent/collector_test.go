@@ -7,35 +7,30 @@ import (
 )
 
 func TestCollect(t *testing.T) {
-	tests := []struct {
-		name               string
-		pollValue1         float64
-		pollValue2         float64
-		expectedMetricName string
-	}{
-		{
-			name:               "collect metric test",
-			pollValue1:         0,
-			pollValue2:         1,
-			expectedMetricName: "Alloc",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			collector := NewCollector()
-			collector.Collect()
+	t.Run("collects all expected metrics", func(t *testing.T) {
+		collector := NewCollector()
+		collector.Collect()
 
-			metrics := collector.GetMetrics()
-			assert.Contains(t, getNames(metrics), tt.expectedMetricName)
-			assert.Equal(t, tt.pollValue1, *getMetricByName("PollCount", metrics).Value)
-			assert.Equal(t, int64(1), *getMetricByName("PollCount", metrics).Delta) // Server sees delta=1
+		metrics := collector.GetMetrics()
+		assert.Contains(t, getNames(metrics), "Alloc")
+		assert.Contains(t, getNames(metrics), "PollCount")
+		assert.Contains(t, getNames(metrics), "RandomValue")
+	})
 
-			collector.Collect()
-			metrics = collector.GetMetrics()
-			assert.Equal(t, tt.pollValue2, *getMetricByName("PollCount", metrics).Value)
-			assert.Equal(t, int64(1), *getMetricByName("PollCount", metrics).Delta) // Server sees delta=1
-		})
-	}
+	t.Run("PollCount delta accumulates", func(t *testing.T) {
+		collector := NewCollector()
+
+		collector.Collect()
+		metrics := collector.GetMetrics()
+		pollCount := getMetricByName("PollCount", metrics)
+		assert.Equal(t, models.Counter, pollCount.MType)
+		assert.Equal(t, int64(0), *pollCount.Delta)
+
+		collector.Collect()
+		metrics = collector.GetMetrics()
+		pollCount = getMetricByName("PollCount", metrics)
+		assert.Equal(t, int64(1), *pollCount.Delta)
+	})
 }
 
 func getNames(metrics []*models.Metrics) []string {

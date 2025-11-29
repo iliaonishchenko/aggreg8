@@ -56,7 +56,7 @@ func TestHandleAllMetrics(t *testing.T) {
 		{
 			name: "storage with counter metric",
 			storedMetrics: []*models.Metrics{
-				{ID: "requests", MType: models.Counter, Value: floatPtr(42)},
+				{ID: "requests", MType: models.Counter, Delta: intPtr(42)},
 			},
 			want: want{
 				code:        http.StatusOK,

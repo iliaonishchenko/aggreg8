@@ -6,8 +6,8 @@ import (
 	"testing"
 )
 
-func TestBuildSendMetricURL(t *testing.T) {
-	baseURL := "http://localhost:8080"
+func TestBuildMetricURL(t *testing.T) {
+	baseURL := "localhost:8080"
 
 	tests := []struct {
 		name        string
@@ -30,7 +30,7 @@ func TestBuildSendMetricURL(t *testing.T) {
 			metricModel: &models.Metrics{
 				ID:    "requests",
 				MType: models.Counter,
-				Value: float64Ptr(42),
+				Delta: int64Ptr(42),
 			},
 			expectedURL: "http://localhost:8080/update/counter/requests/42",
 			err:         nil,

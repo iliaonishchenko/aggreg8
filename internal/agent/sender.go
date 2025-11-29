@@ -20,19 +20,17 @@ func NewSender(endpoint string) *Sender {
 	}
 }
 
-func (s *Sender) Send(metrics []*models.Metrics) {
-	for _, v := range metrics {
-		fmt.Printf("send metric: type: %s, name: %s\n", v.MType, v.ID)
-		resp, err := s.sendMetric(v)
-		if err != nil {
-			fmt.Printf("error sending the metric: type: %s, name: %s, err: %v", v.MType, v.ID, err)
-			continue
-		}
-		if resp.StatusCode != http.StatusOK {
-			fmt.Printf("server returned error: %d\n", resp.StatusCode)
-		}
-		resp.Body.Close()
+func (s *Sender) Send(metric *models.Metrics) error {
+	resp, err := s.sendMetric(metric)
+	if err != nil {
+		fmt.Printf("error sending the metric: type: %s, name: %s, err: %v", metric.MType, metric.ID, err)
+		return err
 	}
+	if resp.StatusCode != http.StatusOK {
+		fmt.Printf("server returned error: %d\n", resp.StatusCode)
+	}
+	resp.Body.Close()
+	return nil
 }
 
 func (s *Sender) sendMetric(metric *models.Metrics) (*http.Response, error) {
@@ -42,10 +40,19 @@ func (s *Sender) sendMetric(metric *models.Metrics) (*http.Response, error) {
 }
 
 func (s *Sender) buildMetricURL(baseURL string, metric *models.Metrics) string {
-	return fmt.Sprintf("%s/update/%s/%s/%s",
+	var metricValue string
+
+	switch metric.MType {
+	case models.Gauge:
+		metricValue = strconv.FormatFloat(*metric.Value, 'f', -1, 64)
+	case models.Counter:
+		metricValue = strconv.FormatInt(*metric.Delta, 10)
+	}
+
+	return fmt.Sprintf("http://%s/update/%s/%s/%s",
 		baseURL,
 		url.PathEscape(metric.MType),
 		url.PathEscape(metric.ID),
-		url.PathEscape(strconv.FormatFloat(*metric.Value, 'f', -1, 64)),
+		url.PathEscape(metricValue),
 	)
 }

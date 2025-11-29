@@ -45,28 +45,6 @@ func TestHandleUpdate(t *testing.T) {
 				contentType: "text/plain; charset=utf-8",
 			},
 		},
-		//{
-		//	name:               "valid gauge metric with invalid method",
-		//	requestURL:         "http://localhost:8080/update/gauge/temperature/23.5",
-		//	requestMethod:      http.MethodGet,
-		//	requestContentType: "text/plain",
-		//	want: want{
-		//		code:        http.StatusMethodNotAllowed,
-		//		response:    "",
-		//		contentType: "",
-		//	},
-		//},
-		//{
-		//	name:               "valid gauge metric with invalid content type",
-		//	requestURL:         "http://localhost:8080/update/gauge/temperature/23.5",
-		//	requestMethod:      http.MethodPost,
-		//	requestContentType: "application/json",
-		//	want: want{
-		//		code:        http.StatusBadRequest,
-		//		response:    "",
-		//		contentType: "",
-		//	},
-		//},
 		{
 			name:               "gauge metric without name",
 			requestURL:         "http://localhost:8080/update/gauge/23.5",

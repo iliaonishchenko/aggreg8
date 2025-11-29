@@ -3,6 +3,7 @@ package service
 import (
 	"errors"
 	models "github.com/iliaonishchenko/aggreg8/internal/model"
+	"sync"
 )
 
 type MetricStorage interface {
@@ -12,6 +13,7 @@ type MetricStorage interface {
 }
 
 type MemStorage struct {
+	mu      sync.RWMutex
 	metrics map[string]*models.Metrics
 }
 
@@ -24,6 +26,9 @@ func NewMemStorage() *MemStorage {
 }
 
 func (ms *MemStorage) UpdateMetric(metric *models.Metrics) bool {
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
+
 	switch metric.MType {
 	case models.Gauge:
 		prev, exists := ms.metrics[metric.ID]
@@ -40,8 +45,8 @@ func (ms *MemStorage) UpdateMetric(metric *models.Metrics) bool {
 			ms.metrics[metric.ID] = metric
 			return true
 		}
-		newValue := *prev.Value + *metric.Value
-		prev.Value = &newValue
+		newDelta := *prev.Delta + *metric.Delta
+		prev.Delta = &newDelta
 		return true
 	default:
 		return false
@@ -49,14 +54,21 @@ func (ms *MemStorage) UpdateMetric(metric *models.Metrics) bool {
 }
 
 func (ms *MemStorage) GetMetric(metricName string) (*models.Metrics, error) {
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
+
 	metric, exists := ms.metrics[metricName]
 	if !exists {
 		return nil, ErrMetricNotFound
 	}
+
 	return metric, nil
 }
 
 func (ms *MemStorage) GetAllMetrics() []*models.Metrics {
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
+
 	results := make([]*models.Metrics, 0, len(ms.metrics))
 	for _, v := range ms.metrics {
 		results = append(results, v)

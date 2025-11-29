@@ -47,7 +47,7 @@ func (c *Collector) Collect() {
 		{ID: "StackSys", MType: models.Gauge, Value: float64Ptr(float64(m.StackSys))},
 		{ID: "Sys", MType: models.Gauge, Value: float64Ptr(float64(m.Sys))},
 		{ID: "TotalAlloc", MType: models.Gauge, Value: float64Ptr(float64(m.TotalAlloc))},
-		{ID: "PollCount", MType: models.Counter, Delta: int64Ptr(1), Value: float64Ptr(float64(c.pollCount))},
+		{ID: "PollCount", MType: models.Counter, Delta: int64Ptr(c.pollCount)},
 		{ID: "RandomValue", MType: models.Gauge, Value: float64Ptr(rand.Float64())},
 	}
 	c.pollCount++

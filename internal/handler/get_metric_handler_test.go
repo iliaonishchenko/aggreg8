@@ -44,7 +44,7 @@ func TestHandleGetMetric(t *testing.T) {
 			requestMethod:      "GET",
 			requestContentType: "text/plain",
 			storedMetrics: []*models.Metrics{
-				{ID: "requests", MType: models.Counter, Value: floatPtr(42)},
+				{ID: "requests", MType: models.Counter, Delta: intPtr(42)},
 			},
 			want: want{
 				code:     200,
@@ -116,4 +116,8 @@ func storageWithMetrics(metrics []*models.Metrics) service.MetricStorage {
 
 func floatPtr(f float64) *float64 {
 	return &f
+}
+
+func intPtr(i int64) *int64 {
+	return &i
 }

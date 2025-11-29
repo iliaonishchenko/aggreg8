@@ -7,49 +7,52 @@ import (
 )
 
 func TestUpdateMetric(t *testing.T) {
-	tests := []struct {
-		name              string
-		metric            *models.Metrics
-		updateResult      bool
-		storedMetricValue float64
-	}{
-		{
-			name:              "successfully update gauge metric",
-			metric:            &models.Metrics{ID: "temperature", MType: models.Gauge, Value: floatPtr(23.5)},
-			updateResult:      true,
-			storedMetricValue: 23.5,
-		},
-		{
-			name:              "successfully update counter metric",
-			metric:            &models.Metrics{ID: "requests", MType: models.Counter, Delta: intPtr(1), Value: floatPtr(1)},
-			updateResult:      true,
-			storedMetricValue: 2,
-		},
-	}
+	t.Run("successfully update gauge metric", func(t *testing.T) {
+		storage := NewMemStorage()
+		metric := &models.Metrics{ID: "temperature", MType: models.Gauge, Value: floatPtr(23.5)}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			storage := NewMemStorage()
+		ok := storage.UpdateMetric(metric)
+		assert.True(t, ok)
 
-			actualUpdateResult := storage.UpdateMetric(tt.metric)
+		storedMetric, err := storage.GetMetric("temperature")
+		assert.NoError(t, err)
+		assert.Equal(t, 23.5, *storedMetric.Value)
 
-			assert.Equal(t, tt.updateResult, actualUpdateResult)
+		metric2 := &models.Metrics{ID: "temperature", MType: models.Gauge, Value: floatPtr(99.9)}
+		ok = storage.UpdateMetric(metric2)
+		assert.True(t, ok)
 
-			storedMetric, err := storage.GetMetric(tt.metric.ID)
+		storedMetric, err = storage.GetMetric("temperature")
+		assert.NoError(t, err)
+		assert.Equal(t, 99.9, *storedMetric.Value)
+	})
 
-			assert.NoError(t, err)
-			assert.Equal(t, storedMetric, tt.metric)
+	t.Run("successfully update counter metric", func(t *testing.T) {
+		storage := NewMemStorage()
+		metric := &models.Metrics{ID: "requests", MType: models.Counter, Delta: intPtr(1)}
 
-			actualUpdateResult2 := storage.UpdateMetric(tt.metric)
+		ok := storage.UpdateMetric(metric)
+		assert.True(t, ok)
 
-			assert.Equal(t, tt.updateResult, actualUpdateResult2)
+		storedMetric, err := storage.GetMetric("requests")
+		assert.NoError(t, err)
+		assert.Equal(t, int64(1), *storedMetric.Delta)
+		
+		ok = storage.UpdateMetric(metric)
+		assert.True(t, ok)
 
-			storedMetric2, err := storage.GetMetric(tt.metric.ID)
+		storedMetric, err = storage.GetMetric("requests")
+		assert.NoError(t, err)
+		assert.Equal(t, int64(2), *storedMetric.Delta)
+	})
 
-			assert.NoError(t, err)
-			assert.Equal(t, tt.storedMetricValue, *storedMetric2.Value)
-		})
-	}
+	t.Run("unknown metric type returns false", func(t *testing.T) {
+		storage := NewMemStorage()
+		metric := &models.Metrics{ID: "unknown", MType: "invalid"}
+
+		ok := storage.UpdateMetric(metric)
+		assert.False(t, ok)
+	})
 }
 
 func TestGetAllMetrics(t *testing.T) {
@@ -61,7 +64,7 @@ func TestGetAllMetrics(t *testing.T) {
 			name: "successfully get all metrics",
 			metrics: []*models.Metrics{
 				{ID: "temperature", MType: models.Gauge, Value: floatPtr(23.5)},
-				{ID: "requests", MType: models.Counter, Delta: intPtr(1), Value: floatPtr(1)},
+				{ID: "requests", MType: models.Counter, Delta: intPtr(1)},
 			},
 		},
 	}
