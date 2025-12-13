@@ -4,6 +4,7 @@ import "github.com/caarlos0/env/v11"
 
 type Config struct {
 	ServerAddress string `env:"ADDRESS"`
+	LogLevel      string `env:"LOG_LEVEL" envDefault:"info"`
 }
 
 func LoadConfig() (*Config, error) {
