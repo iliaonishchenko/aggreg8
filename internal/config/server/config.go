@@ -3,7 +3,7 @@ package server
 import "github.com/caarlos0/env/v11"
 
 type Config struct {
-	ServerAddress string `env:"SERVER_ADDRESS" envDefault:"localhost:8080"`
+	ServerAddress string `env:"ADDRESS"`
 }
 
 func LoadConfig() (*Config, error) {

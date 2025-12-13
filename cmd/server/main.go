@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/iliaonishchenko/aggreg8/internal/config/server"
@@ -12,12 +11,13 @@ import (
 )
 
 func main() {
+	defaultServerAddress := "localhost:8080"
 	cfg, err := server.LoadConfig()
 	if err != nil {
 		log.Fatalf("error loading config: %v", err)
 	}
 
-	parseFlags(cfg)
+	parseFlags(cfg, defaultServerAddress)
 
 	if err := run(*cfg); err != nil {
 		log.Fatalf("error running server: %v", err)
@@ -25,7 +25,6 @@ func main() {
 }
 
 func run(cfg server.Config) error {
-	fmt.Println("starting server")
 
 	r := chi.NewRouter()
 
