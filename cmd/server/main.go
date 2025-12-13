@@ -5,7 +5,9 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/iliaonishchenko/aggreg8/internal/config/server"
 	"github.com/iliaonishchenko/aggreg8/internal/handler"
+	"github.com/iliaonishchenko/aggreg8/internal/logger"
 	"github.com/iliaonishchenko/aggreg8/internal/service"
+	"go.uber.org/zap"
 	"log"
 	"net/http"
 )
@@ -19,8 +21,12 @@ func main() {
 
 	parseFlags(cfg, defaultServerAddress)
 
+	if err := logger.Initialize(cfg.LogLevel); err != nil {
+		log.Fatalf("error initializing logger: %v", err)
+	}
+
 	if err := run(*cfg); err != nil {
-		log.Fatalf("error running server: %v", err)
+		logger.Log.Fatal("error starting server", zap.Error(err))
 	}
 }
 
@@ -32,6 +38,8 @@ func run(cfg server.Config) error {
 	updateHandler := handler.NewUpdateHandler(memStorage)
 	allHandler := handler.NewAllMetricsHandler(memStorage)
 	getMetricHandler := handler.NewGetMetricHandler(memStorage)
+
+	r.Use(logger.WithLogger)
 
 	r.Route("/", func(r chi.Router) {
 		r.Get("/", allHandler.HandleAll)

@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"fmt"
 	"github.com/go-chi/chi/v5"
 	models "github.com/iliaonishchenko/aggreg8/internal/model"
 	"github.com/iliaonishchenko/aggreg8/internal/service"
@@ -24,8 +23,6 @@ func (uh UpdateHandler) HandleUpdate(w http.ResponseWriter, r *http.Request) {
 	metricType := chi.URLParam(r, "type")
 	name := chi.URLParam(r, "name")
 	value := chi.URLParam(r, "value")
-
-	fmt.Printf("received metric: type: %s, name: %s, value: %v", metricType, name, value)
 
 	if name == "" {
 		w.WriteHeader(http.StatusNotFound)
