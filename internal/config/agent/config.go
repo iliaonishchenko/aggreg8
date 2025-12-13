@@ -5,9 +5,9 @@ import (
 )
 
 type Config struct {
-	ServerAddress  string `env:"SERVER_ADDRESS" envDefault:"localhost:8080"`
-	ReportInterval int    `env:"REPORT_INTERVAL" envDefault:"10"` // in seconds
-	PollInterval   int    `env:"POLL_INTERVAL" envDefault:"2"`    // in seconds
+	ServerAddress  string `env:"ADDRESS"`
+	ReportInterval int    `env:"REPORT_INTERVAL"`
+	PollInterval   int    `env:"POLL_INTERVAL"`
 }
 
 func LoadConfig() (*Config, error) {
