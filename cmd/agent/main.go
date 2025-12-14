@@ -64,7 +64,7 @@ func main() {
 
 func sendMetrics(metrics []*models.Metrics, sender *agent.Sender) error {
 	for _, metric := range metrics {
-		err := sender.Send(metric)
+		err := sender.SendJSON(metric)
 		if err != nil {
 			return err
 		}
