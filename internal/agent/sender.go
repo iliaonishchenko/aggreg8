@@ -1,7 +1,10 @@
 package agent
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"github.com/iliaonishchenko/aggreg8/internal/logger"
 	models "github.com/iliaonishchenko/aggreg8/internal/model"
 	"net/http"
 	"net/url"
@@ -18,6 +21,31 @@ func NewSender(endpoint string) *Sender {
 		endpoint: endpoint,
 		client:   http.Client{},
 	}
+}
+
+func (s *Sender) SendJSON(metric *models.Metrics) error {
+	uri := fmt.Sprintf("http://%s/update", s.endpoint)
+	buf := new(bytes.Buffer)
+	enc := json.NewEncoder(buf)
+	if err := enc.Encode(metric); err != nil {
+		logger.Log.Error("error encoding metric to JSON", logger.Err(err))
+	}
+
+	resp, err := s.client.Post(uri, "application/json", buf)
+
+	if err != nil {
+		logger.Log.Error("error sending metric to agent", logger.Err(err))
+		return err
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		logger.Log.Info("error sending metric to agent", logger.Err(err))
+		return err
+	}
+
+	return nil
 }
 
 func (s *Sender) Send(metric *models.Metrics) error {
