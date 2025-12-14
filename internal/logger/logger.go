@@ -76,3 +76,7 @@ func WithLogger(h http.Handler) http.Handler {
 		)
 	})
 }
+
+func Err(err error) zap.Field {
+	return zap.Error(err)
+}

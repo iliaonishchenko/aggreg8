@@ -46,6 +46,14 @@ func run(cfg server.Config) error {
 		r.Route("/value/{type}/{name}", func(r chi.Router) {
 			r.Get("/", getMetricHandler.HandleGetMetric)
 		})
+		r.Route("/value", func(r chi.Router) {
+			r.Use(middleware.AllowContentType("application/json"))
+			r.Post("/", getMetricHandler.HandleGetMetricJSON)
+		})
+		r.Route("/update", func(r chi.Router) {
+			r.Use(middleware.AllowContentType("application/json"))
+			r.Post("/", updateHandler.HandleUpdateJSON)
+		})
 		r.Route("/update/{type}/{name}/{value}", func(r chi.Router) {
 			r.Use(middleware.AllowContentType("text/plain"))
 			r.Post("/", updateHandler.HandleUpdate)

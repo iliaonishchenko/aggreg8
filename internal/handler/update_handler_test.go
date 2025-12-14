@@ -1,6 +1,9 @@
 package handler
 
 import (
+	"bytes"
+	"encoding/json"
+	models "github.com/iliaonishchenko/aggreg8/internal/model"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -113,4 +116,97 @@ func TestHandleUpdate(t *testing.T) {
 			assert.Equal(t, tt.want.contentType, result.Header.Get("Content-Type"))
 		})
 	}
+}
+
+func TestHandleUpdateJSON(t *testing.T) {
+	tests := []struct {
+		name          string
+		requestMethod string
+		requestBody   any
+		responseCode  int
+	}{
+		{
+			name:          "valid gauge metric",
+			requestMethod: http.MethodPost,
+			requestBody:   models.Metrics{ID: "temperature", MType: models.Gauge, Value: ptrFloat64(23.5)},
+			responseCode:  http.StatusOK,
+		},
+		{
+			name:          "valid counter metric",
+			requestMethod: http.MethodPost,
+			requestBody:   models.Metrics{ID: "requests", MType: models.Counter, Delta: ptrInt64(10)},
+			responseCode:  http.StatusOK,
+		},
+		{
+			name:          "missing metric ID",
+			requestMethod: http.MethodPost,
+			requestBody:   map[string]interface{}{"value": ptrFloat64(23.5)},
+			responseCode:  http.StatusBadRequest,
+		},
+		{
+			name:          "missing metric type",
+			requestMethod: http.MethodPost,
+			requestBody:   map[string]interface{}{"id": "temperature", "value": ptrFloat64(23.5)},
+			responseCode:  http.StatusBadRequest,
+		},
+		{
+			name:          "invalid gauge metric",
+			requestMethod: http.MethodPost,
+			requestBody:   map[string]interface{}{"id": "temperature", "type": models.Gauge},
+			responseCode:  http.StatusBadRequest,
+		},
+		{
+			name:          "invalid counter metric",
+			requestMethod: http.MethodPost,
+			requestBody:   map[string]interface{}{"id": "requests", "type": models.Counter},
+			responseCode:  http.StatusBadRequest,
+		},
+		{
+			name:          "non-existing metric",
+			requestMethod: http.MethodPost,
+			requestBody:   map[string]interface{}{"id": "requests", "type": "len"},
+			responseCode:  http.StatusBadRequest,
+		},
+		{
+			name:          "invalid method",
+			requestMethod: http.MethodGet,
+			requestBody:   nil,
+			responseCode:  http.StatusMethodNotAllowed,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			requestURL := "http://localhost:8080/update"
+			storage := service.NewMemStorage()
+			handler := NewUpdateHandler(storage)
+
+			r := chi.NewRouter()
+			r.Post("/update", handler.HandleUpdateJSON)
+
+			buf := new(bytes.Buffer)
+			enc := json.NewEncoder(buf)
+			if err := enc.Encode(tt.requestBody); err != nil {
+				t.Fatalf("failed to encode request body: %v", err)
+			}
+			request := httptest.NewRequest(tt.requestMethod, requestURL, buf)
+
+			w := httptest.NewRecorder()
+
+			r.ServeHTTP(w, request)
+
+			result := w.Result()
+			defer result.Body.Close()
+
+			assert.Equal(t, tt.responseCode, result.StatusCode)
+		})
+	}
+}
+
+func ptrFloat64(v float64) *float64 {
+	return &v
+}
+
+func ptrInt64(v int64) *int64 {
+	return &v
 }
