@@ -6,6 +6,7 @@ import (
 	"github.com/iliaonishchenko/aggreg8/internal/config/server"
 	"github.com/iliaonishchenko/aggreg8/internal/handler"
 	"github.com/iliaonishchenko/aggreg8/internal/logger"
+	"github.com/iliaonishchenko/aggreg8/internal/router"
 	"github.com/iliaonishchenko/aggreg8/internal/service"
 	"go.uber.org/zap"
 	"log"
@@ -40,6 +41,7 @@ func run(cfg server.Config) error {
 	getMetricHandler := handler.NewGetMetricHandler(memStorage)
 
 	r.Use(logger.WithLogger)
+	r.Use(router.WithCompression)
 
 	r.Route("/", func(r chi.Router) {
 		r.Get("/", allHandler.HandleAll)
