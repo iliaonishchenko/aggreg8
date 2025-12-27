@@ -1,8 +1,10 @@
 package agent
 
 import (
+	"compress/gzip"
 	models "github.com/iliaonishchenko/aggreg8/internal/model"
 	"github.com/stretchr/testify/assert"
+	"io"
 	"testing"
 )
 
@@ -44,4 +46,36 @@ func TestBuildMetricURL(t *testing.T) {
 			assert.Equal(t, tt.expectedURL, actualURL)
 		})
 	}
+}
+
+func TestCompressData(t *testing.T) {
+	original := []byte("This is some test data to be compressed.")
+	compressedData, err := compressData(original)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, compressedData)
+
+	reader, err := gzip.NewReader(compressedData)
+	assert.NoError(t, err)
+
+	decompressed, err := io.ReadAll(reader)
+
+	assert.NoError(t, err)
+	assert.Equal(t, original, decompressed)
+}
+
+func TestEncodeJSON(t *testing.T) {
+	metric := &models.Metrics{
+		ID:    "cpu_usage",
+		MType: models.Gauge,
+		Value: float64Ptr(75.5),
+	}
+
+	jsonData, err := encodeJSON(metric)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, jsonData)
+
+	expectedJSON := `{"id":"cpu_usage","type":"gauge","value":75.5}`
+	assert.JSONEq(t, expectedJSON, jsonData.String())
 }

@@ -2,6 +2,7 @@ package agent
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"github.com/iliaonishchenko/aggreg8/internal/logger"
@@ -23,24 +24,61 @@ func NewSender(endpoint string) *Sender {
 	}
 }
 
-func (s *Sender) SendJSON(metric *models.Metrics) error {
-	uri := fmt.Sprintf("http://%s/update", s.endpoint)
+func encodeJSON(v interface{}) (*bytes.Buffer, error) {
 	buf := new(bytes.Buffer)
 	enc := json.NewEncoder(buf)
-	if err := enc.Encode(metric); err != nil {
+	if err := enc.Encode(v); err != nil {
+		return nil, err
+	}
+	return buf, nil
+}
+
+func compressData(data []byte) (*bytes.Buffer, error) {
+	buf := new(bytes.Buffer)
+	w := gzip.NewWriter(buf)
+	if _, err := w.Write(data); err != nil {
+		return nil, err
+	}
+	err := w.Close()
+	if err != nil {
+		return nil, err
+	}
+	return buf, nil
+}
+
+func (s *Sender) SendJSON(metric *models.Metrics) error {
+	uri := fmt.Sprintf("http://%s/update", s.endpoint)
+
+	metricBuf, err := encodeJSON(metric)
+	if err != nil {
 		logger.Log.Error("error encoding metric to JSON", logger.Err(err))
+		return err
 	}
 
-	resp, err := s.client.Post(uri, "application/json", buf)
+	compressedBuf, err := compressData(metricBuf.Bytes())
+	if err != nil {
+		logger.Log.Error("error compressing metric data", logger.Err(err))
+		return err
+	}
+
+	req, err := http.NewRequest("POST", uri, compressedBuf)
+	if err != nil {
+		logger.Log.Error("error creating request to agent", logger.Err(err))
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Encoding", "gzip")
+	req.Header.Set("Accept-Encoding", "gzip")
+	resp, err := s.client.Do(req)
 
 	if err != nil {
 		logger.Log.Error("error sending metric to agent", logger.Err(err))
 		return err
 	}
-
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		err = fmt.Errorf("server returned non-OK status: %d", resp.StatusCode)
 		logger.Log.Info("error sending metric to agent", logger.Err(err))
 		return err
 	}
