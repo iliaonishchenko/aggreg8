@@ -3,8 +3,11 @@ package server
 import "github.com/caarlos0/env/v11"
 
 type Config struct {
-	ServerAddress string `env:"ADDRESS"`
-	LogLevel      string `env:"LOG_LEVEL" envDefault:"info"`
+	ServerAddress   string  `env:"ADDRESS"`
+	LogLevel        string  `env:"LOG_LEVEL" envDefault:"info"`
+	StoreInterval   *int    `env:"STORE_INTERVAL"`
+	FileStoragePath *string `env:"FILE_STORAGE_PATH"`
+	Restore         *bool   `env:"RESTORE"`
 }
 
 func LoadConfig() (*Config, error) {
