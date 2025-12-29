@@ -14,14 +14,26 @@ import (
 )
 
 func main() {
+
+	defaultServerAddress := "localhost:8080"
+	defaultReportInterval := 10
+	defaultPollInterval := 2
+
 	config, err := agentconfig.LoadConfig()
+
 	if err != nil {
 		log.Fatalf("error loading config: %v", err)
 	}
 
-	flag.StringVar(&config.ServerAddress, "a", config.ServerAddress, "address and port to run server")
-	flag.IntVar(&config.ReportInterval, "r", config.ReportInterval, "report interval in seconds")
-	flag.IntVar(&config.PollInterval, "p", config.PollInterval, "poll interval in seconds")
+	if config.ServerAddress == "" {
+		flag.StringVar(&config.ServerAddress, "a", defaultServerAddress, "address and port to run server")
+	}
+	if config.ReportInterval == 0 {
+		flag.IntVar(&config.ReportInterval, "r", defaultReportInterval, "report interval in seconds")
+	}
+	if config.PollInterval == 0 {
+		flag.IntVar(&config.PollInterval, "p", defaultPollInterval, "poll interval in seconds")
+	}
 
 	flag.Parse()
 
@@ -52,7 +64,7 @@ func main() {
 
 func sendMetrics(metrics []*models.Metrics, sender *agent.Sender) error {
 	for _, metric := range metrics {
-		err := sender.Send(metric)
+		err := sender.SendJSON(metric)
 		if err != nil {
 			return err
 		}

@@ -1,8 +1,9 @@
 package handler
 
 import (
-	"fmt"
+	"encoding/json"
 	"github.com/go-chi/chi/v5"
+	"github.com/iliaonishchenko/aggreg8/internal/logger"
 	models "github.com/iliaonishchenko/aggreg8/internal/model"
 	"github.com/iliaonishchenko/aggreg8/internal/service"
 	"net/http"
@@ -24,8 +25,6 @@ func (uh UpdateHandler) HandleUpdate(w http.ResponseWriter, r *http.Request) {
 	metricType := chi.URLParam(r, "type")
 	name := chi.URLParam(r, "name")
 	value := chi.URLParam(r, "value")
-
-	fmt.Printf("received metric: type: %s, name: %s, value: %v", metricType, name, value)
 
 	if name == "" {
 		w.WriteHeader(http.StatusNotFound)
@@ -65,5 +64,49 @@ func (uh UpdateHandler) HandleUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+}
+
+func (uh UpdateHandler) HandleUpdateJSON(w http.ResponseWriter, r *http.Request) {
+	logger.Log.Debug("decoding request")
+
+	var metrics models.Metrics
+	dec := json.NewDecoder(r.Body)
+	if err := dec.Decode(&metrics); err != nil {
+		logger.Log.Error("cannot decode request JSON body", logger.Err(err))
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	if metrics.ID == "" || metrics.MType == "" {
+		logger.Log.Error("missing metric ID or type")
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	if metrics.MType == models.Gauge && metrics.Value == nil {
+		logger.Log.Error("missing gauge value")
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	if metrics.MType == models.Counter && metrics.Delta == nil {
+		logger.Log.Error("missing counter delta")
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	if metrics.MType != models.Counter && metrics.MType != models.Gauge {
+		logger.Log.Error("invalid metric type: " + metrics.MType)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	if ok := uh.memStorage.UpdateMetric(&metrics); !ok {
+		logger.Log.Error("failed to update metric")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
 	w.WriteHeader(http.StatusOK)
 }
