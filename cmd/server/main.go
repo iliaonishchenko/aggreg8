@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"database/sql"
+	"fmt"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/iliaonishchenko/aggreg8/internal/config/server"
@@ -11,6 +13,7 @@ import (
 	"github.com/iliaonishchenko/aggreg8/internal/router"
 	"github.com/iliaonishchenko/aggreg8/internal/service"
 	"github.com/iliaonishchenko/aggreg8/internal/service/sync"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"
 	"log"
 	"net/http"
@@ -72,14 +75,22 @@ func run(cfg server.Config, memStorage service.MetricStorage) error {
 
 	r := chi.NewRouter()
 
+	db, err := sql.Open("pgx", cfg.DatabaseDSN)
+	if err != nil {
+		return fmt.Errorf("error connecting to database: %w", err)
+	}
+	database := repository.NewDatabase(db)
+
 	updateHandler := handler.NewUpdateHandler(memStorage)
 	allHandler := handler.NewAllMetricsHandler(memStorage)
 	getMetricHandler := handler.NewGetMetricHandler(memStorage)
+	pingHandler := handler.NewPingHandler(database)
 
 	r.Use(logger.WithLogger)
 	r.Use(router.WithCompression)
 
 	r.Route("/", func(r chi.Router) {
+		r.Get("/ping", pingHandler.HandlePing)
 		r.Get("/", allHandler.HandleAll)
 		r.Route("/value/{type}/{name}", func(r chi.Router) {
 			r.Get("/", getMetricHandler.HandleGetMetric)

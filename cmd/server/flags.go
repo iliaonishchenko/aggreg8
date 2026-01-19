@@ -29,5 +29,9 @@ func parseFlags(cfg *server.Config, defaultServerAddress string, defaultStoreInt
 		cfg.Restore = &restore
 	}
 
+	if cfg.DatabaseDSN == "" {
+		flag.StringVar(&cfg.DatabaseDSN, "d", "", "database DSN")
+	}
+
 	flag.Parse()
 }
