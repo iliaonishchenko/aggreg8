@@ -46,10 +46,20 @@ func compressData(data []byte) (*bytes.Buffer, error) {
 	return buf, nil
 }
 
-func (s *Sender) SendJSON(metric *models.Metrics) error {
-	uri := fmt.Sprintf("http://%s/update", s.endpoint)
+func (s *Sender) SendJSON(metrics ...*models.Metrics) error {
+	var uri string
+	var metricBuf *bytes.Buffer
+	var err error
 
-	metricBuf, err := encodeJSON(metric)
+	if len(metrics) == 1 {
+		uri = fmt.Sprintf("http://%s/update", s.endpoint)
+		metric := metrics[0]
+		metricBuf, err = encodeJSON(metric)
+	} else {
+		uri = fmt.Sprintf("http://%s/updates", s.endpoint)
+		metricBuf, err = encodeJSON(metrics)
+	}
+
 	if err != nil {
 		logger.Log.Error("error encoding metric to JSON", logger.Err(err))
 		return err
