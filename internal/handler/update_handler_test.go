@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	models "github.com/iliaonishchenko/aggreg8/internal/model"
+	"github.com/iliaonishchenko/aggreg8/internal/service/memory"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/iliaonishchenko/aggreg8/internal/service"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -96,7 +96,7 @@ func TestHandleUpdate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			storage := service.NewMemStorage()
+			storage := memory.NewMemStorage()
 			handler := NewUpdateHandler(storage)
 
 			r := chi.NewRouter()
@@ -178,7 +178,7 @@ func TestHandleUpdateJSON(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			requestURL := "http://localhost:8080/update"
-			storage := service.NewMemStorage()
+			storage := memory.NewMemStorage()
 			handler := NewUpdateHandler(storage)
 
 			r := chi.NewRouter()

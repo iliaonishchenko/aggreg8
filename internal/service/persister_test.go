@@ -139,3 +139,10 @@ func TestPersister_Start(t *testing.T) {
 		assert.GreaterOrEqual(t, saver.getSaveCount(), 2, "Should continue trying to save despite errors")
 	})
 }
+func floatPtr(f float64) *float64 {
+	return &f
+}
+
+func intPtr(i int64) *int64 {
+	return &i
+}

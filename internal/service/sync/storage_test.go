@@ -1,7 +1,7 @@
 package sync
 
 import (
-	"github.com/iliaonishchenko/aggreg8/internal/service"
+	"github.com/iliaonishchenko/aggreg8/internal/service/memory"
 	"testing"
 
 	models "github.com/iliaonishchenko/aggreg8/internal/model"
@@ -25,7 +25,7 @@ func (m *mockMetricSaver) SaveToFile(filename string, metrics []*models.Metrics)
 
 func TestUpdateMetric(t *testing.T) {
 	t.Run("successfully update metric and save to file", func(t *testing.T) {
-		baseStorage := service.NewMemStorage()
+		baseStorage := memory.NewMemStorage()
 		mockSaver := &mockMetricSaver{}
 		syncStorage := NewSyncStorage(baseStorage, mockSaver, "test.json")
 
@@ -46,7 +46,7 @@ func TestUpdateMetric(t *testing.T) {
 	})
 
 	t.Run("update multiple metrics saves all", func(t *testing.T) {
-		baseStorage := service.NewMemStorage()
+		baseStorage := memory.NewMemStorage()
 		mockSaver := &mockMetricSaver{}
 		syncStorage := NewSyncStorage(baseStorage, mockSaver, "test.json")
 
@@ -65,7 +65,7 @@ func TestUpdateMetric(t *testing.T) {
 
 func TestGetMetric(t *testing.T) {
 	t.Run("delegates to base storage", func(t *testing.T) {
-		baseStorage := service.NewMemStorage()
+		baseStorage := memory.NewMemStorage()
 		mockSaver := &mockMetricSaver{}
 		syncStorage := NewSyncStorage(baseStorage, mockSaver, "test.json")
 
@@ -82,7 +82,7 @@ func TestGetMetric(t *testing.T) {
 
 func TestGetAllMetrics(t *testing.T) {
 	t.Run("delegates to base storage", func(t *testing.T) {
-		baseStorage := service.NewMemStorage()
+		baseStorage := memory.NewMemStorage()
 		mockSaver := &mockMetricSaver{}
 		syncStorage := NewSyncStorage(baseStorage, mockSaver, "test.json")
 

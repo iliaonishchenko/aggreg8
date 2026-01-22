@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/iliaonishchenko/aggreg8"
@@ -11,8 +10,11 @@ import (
 	"github.com/iliaonishchenko/aggreg8/internal/handler"
 	"github.com/iliaonishchenko/aggreg8/internal/logger"
 	"github.com/iliaonishchenko/aggreg8/internal/repository"
+	"github.com/iliaonishchenko/aggreg8/internal/repository/file"
 	"github.com/iliaonishchenko/aggreg8/internal/router"
 	"github.com/iliaonishchenko/aggreg8/internal/service"
+	"github.com/iliaonishchenko/aggreg8/internal/service/memory"
+	"github.com/iliaonishchenko/aggreg8/internal/service/pg"
 	"github.com/iliaonishchenko/aggreg8/internal/service/sync"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"
@@ -37,6 +39,10 @@ func main() {
 		log.Fatalf("error initializing logger: %v", err)
 	}
 
+	var storage service.MetricStorage
+	var cancelFunc context.CancelFunc
+	var repo *repository.MetricsRepository
+
 	if cfg.DatabaseDSN != "" {
 		db, err := sql.Open("pgx", cfg.DatabaseDSN)
 		if err != nil {
@@ -44,36 +50,37 @@ func main() {
 		}
 		defer db.Close()
 		aggreg8.RunMigrations(db)
-	}
 
-	memStorage := service.NewMemStorage()
-	fileStorage := repository.NewFileStorage()
+		repo = repository.NewMetricsRepository(db)
+		storage = pg.NewPostgresStorage(repo)
 
-	if *cfg.Restore {
-		metrics, err := fileStorage.ReadFromFile(*cfg.FileStoragePath)
-		if err != nil {
-			logger.Log.Fatal("error restoring metrics from file", zap.Error(err))
-		}
-		for _, metric := range metrics {
-			memStorage.UpdateMetric(metric)
-		}
-	}
-
-	var storage service.MetricStorage
-	var cancelFunc context.CancelFunc
-
-	if *cfg.StoreInterval == 0 {
-		storage = sync.NewSyncStorage(memStorage, fileStorage, *cfg.FileStoragePath)
 	} else {
-		storage = memStorage
-		interval := time.Duration(*cfg.StoreInterval) * time.Second
-		persister := service.NewPersister(memStorage, fileStorage, *cfg.FileStoragePath, interval)
-		ctx, cancel := context.WithCancel(context.Background())
-		cancelFunc = cancel
-		go persister.Start(ctx)
+		memStorage := memory.NewMemStorage()
+		fileStorage := file.NewFileStorage()
+
+		if *cfg.Restore {
+			metrics, err := fileStorage.ReadFromFile(*cfg.FileStoragePath)
+			if err != nil {
+				logger.Log.Fatal("error restoring metrics from file", zap.Error(err))
+			}
+			for _, metric := range metrics {
+				memStorage.UpdateMetric(metric)
+			}
+		}
+
+		if *cfg.StoreInterval == 0 {
+			storage = sync.NewSyncStorage(memStorage, fileStorage, *cfg.FileStoragePath)
+		} else {
+			storage = memStorage
+			interval := time.Duration(*cfg.StoreInterval) * time.Second
+			persister := service.NewPersister(memStorage, fileStorage, *cfg.FileStoragePath, interval)
+			ctx, cancel := context.WithCancel(context.Background())
+			cancelFunc = cancel
+			go persister.Start(ctx)
+		}
 	}
 
-	if err := run(*cfg, storage); err != nil {
+	if err := run(*cfg, storage, repo); err != nil {
 		if cancelFunc != nil {
 			cancelFunc()
 		}
@@ -81,20 +88,14 @@ func main() {
 	}
 }
 
-func run(cfg server.Config, memStorage service.MetricStorage) error {
+func run(cfg server.Config, storage service.MetricStorage, repo *repository.MetricsRepository) error {
 
 	r := chi.NewRouter()
 
-	db, err := sql.Open("pgx", cfg.DatabaseDSN)
-	if err != nil {
-		return fmt.Errorf("error connecting to database: %w", err)
-	}
-	database := repository.NewDatabase(db)
-
-	updateHandler := handler.NewUpdateHandler(memStorage)
-	allHandler := handler.NewAllMetricsHandler(memStorage)
-	getMetricHandler := handler.NewGetMetricHandler(memStorage)
-	pingHandler := handler.NewPingHandler(database)
+	updateHandler := handler.NewUpdateHandler(storage)
+	allHandler := handler.NewAllMetricsHandler(storage)
+	getMetricHandler := handler.NewGetMetricHandler(storage)
+	pingHandler := handler.NewPingHandler(repo)
 
 	r.Use(logger.WithLogger)
 	r.Use(router.WithCompression)
