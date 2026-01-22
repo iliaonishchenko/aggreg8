@@ -6,6 +6,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	models "github.com/iliaonishchenko/aggreg8/internal/model"
 	"github.com/iliaonishchenko/aggreg8/internal/service"
+	"github.com/iliaonishchenko/aggreg8/internal/service/memory"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"io"
@@ -221,7 +222,7 @@ func TestHandleGetMetricJSON(t *testing.T) {
 }
 
 func storageWithMetrics(metrics []*models.Metrics) service.MetricStorage {
-	storage := service.NewMemStorage()
+	storage := memory.NewMemStorage()
 	for _, metric := range metrics {
 		storage.UpdateMetric(metric)
 	}

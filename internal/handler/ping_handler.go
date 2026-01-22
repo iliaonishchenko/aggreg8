@@ -6,10 +6,10 @@ import (
 )
 
 type PingHandler struct {
-	db *repository.Database
+	db *repository.MetricsRepository
 }
 
-func NewPingHandler(db *repository.Database) *PingHandler {
+func NewPingHandler(db *repository.MetricsRepository) *PingHandler {
 	return &PingHandler{db: db}
 }
 
@@ -19,7 +19,7 @@ func (h *PingHandler) HandlePing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.db.Ping(); err != nil {
-		http.Error(w, "Database connection error", http.StatusInternalServerError)
+		http.Error(w, "MetricsRepository connection error", http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusOK)
