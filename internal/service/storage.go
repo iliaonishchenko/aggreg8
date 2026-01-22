@@ -9,6 +9,7 @@ type MetricStorage interface {
 	UpdateMetric(metric *models.Metrics) bool
 	GetMetric(metricName string) (*models.Metrics, error)
 	GetAllMetrics() []*models.Metrics
+	UpdateMetrics(metrics []*models.Metrics) error
 }
 
 var (

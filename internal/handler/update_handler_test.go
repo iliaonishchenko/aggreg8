@@ -203,6 +203,124 @@ func TestHandleUpdateJSON(t *testing.T) {
 	}
 }
 
+func TestHandleBatchUpdateJSON(t *testing.T) {
+	tests := []struct {
+		name          string
+		requestMethod string
+		requestBody   any
+		responseCode  int
+	}{
+		{
+			name:          "valid batch with multiple metrics",
+			requestMethod: http.MethodPost,
+			requestBody: []*models.Metrics{
+				{ID: "temperature", MType: models.Gauge, Value: ptrFloat64(23.5)},
+				{ID: "requests", MType: models.Counter, Delta: ptrInt64(10)},
+				{ID: "cpu", MType: models.Gauge, Value: ptrFloat64(75.0)},
+			},
+			responseCode: http.StatusOK,
+		},
+		{
+			name:          "valid batch with single metric",
+			requestMethod: http.MethodPost,
+			requestBody: []*models.Metrics{
+				{ID: "temperature", MType: models.Gauge, Value: ptrFloat64(23.5)},
+			},
+			responseCode: http.StatusOK,
+		},
+		{
+			name:          "empty batch",
+			requestMethod: http.MethodPost,
+			requestBody:   []*models.Metrics{},
+			responseCode:  http.StatusOK,
+		},
+		{
+			name:          "batch with missing metric ID",
+			requestMethod: http.MethodPost,
+			requestBody: []*models.Metrics{
+				{ID: "temperature", MType: models.Gauge, Value: ptrFloat64(23.5)},
+				{MType: models.Counter, Delta: ptrInt64(10)},
+			},
+			responseCode: http.StatusBadRequest,
+		},
+		{
+			name:          "batch with missing metric type",
+			requestMethod: http.MethodPost,
+			requestBody: []*models.Metrics{
+				{ID: "temperature", MType: models.Gauge, Value: ptrFloat64(23.5)},
+				{ID: "requests", Delta: ptrInt64(10)},
+			},
+			responseCode: http.StatusBadRequest,
+		},
+		{
+			name:          "batch with missing gauge value",
+			requestMethod: http.MethodPost,
+			requestBody: []*models.Metrics{
+				{ID: "temperature", MType: models.Gauge, Value: ptrFloat64(23.5)},
+				{ID: "cpu", MType: models.Gauge},
+			},
+			responseCode: http.StatusBadRequest,
+		},
+		{
+			name:          "batch with missing counter delta",
+			requestMethod: http.MethodPost,
+			requestBody: []*models.Metrics{
+				{ID: "temperature", MType: models.Gauge, Value: ptrFloat64(23.5)},
+				{ID: "requests", MType: models.Counter},
+			},
+			responseCode: http.StatusBadRequest,
+		},
+		{
+			name:          "batch with invalid metric type",
+			requestMethod: http.MethodPost,
+			requestBody: []*models.Metrics{
+				{ID: "temperature", MType: models.Gauge, Value: ptrFloat64(23.5)},
+				{ID: "invalid", MType: "unknown", Value: ptrFloat64(1.0)},
+			},
+			responseCode: http.StatusBadRequest,
+		},
+		{
+			name:          "invalid JSON body",
+			requestMethod: http.MethodPost,
+			requestBody:   "invalid json",
+			responseCode:  http.StatusBadRequest,
+		},
+		{
+			name:          "invalid method",
+			requestMethod: http.MethodGet,
+			requestBody:   nil,
+			responseCode:  http.StatusMethodNotAllowed,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			requestURL := "http://localhost:8080/updates"
+			storage := memory.NewMemStorage()
+			handler := NewUpdateHandler(storage)
+
+			r := chi.NewRouter()
+			r.Post("/updates", handler.HandleBatchUpdateJSON)
+
+			buf := new(bytes.Buffer)
+			enc := json.NewEncoder(buf)
+			if err := enc.Encode(tt.requestBody); err != nil {
+				t.Fatalf("failed to encode request body: %v", err)
+			}
+			request := httptest.NewRequest(tt.requestMethod, requestURL, buf)
+
+			w := httptest.NewRecorder()
+
+			r.ServeHTTP(w, request)
+
+			result := w.Result()
+			defer result.Body.Close()
+
+			assert.Equal(t, tt.responseCode, result.StatusCode)
+		})
+	}
+}
+
 func ptrFloat64(v float64) *float64 {
 	return &v
 }

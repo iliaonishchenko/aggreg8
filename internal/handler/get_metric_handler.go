@@ -86,7 +86,7 @@ func (gmh *GetMetricHandler) HandleGetMetricJSON(w http.ResponseWriter, r *http.
 
 	storedMetric, err := gmh.storage.GetMetric(metrics.ID)
 
-	if err != nil {
+	if err != nil || storedMetric == nil {
 		logger.Log.Error("metric not found", zap.String("id", metrics.ID))
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotFound)
