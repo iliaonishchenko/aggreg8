@@ -3,6 +3,7 @@ package memory
 import (
 	models "github.com/iliaonishchenko/aggreg8/internal/model"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"testing"
 )
 
@@ -92,6 +93,28 @@ func TestGetAllMetrics(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestUpdateMetrics(t *testing.T) {
+	t.Run("successfully update gauge metric", func(t *testing.T) {
+		storage := NewMemStorage()
+		metrics := []*models.Metrics{
+			{ID: "temperature", MType: models.Gauge, Value: floatPtr(23.5)},
+			{ID: "requests", MType: models.Counter, Delta: intPtr(1)},
+		}
+
+		err := storage.UpdateMetrics(metrics)
+
+		require.NoError(t, err)
+
+		storedMetric, err := storage.GetMetric("temperature")
+		assert.NoError(t, err)
+		assert.Equal(t, 23.5, *storedMetric.Value)
+
+		storedMetric, err = storage.GetMetric("requests")
+		assert.NoError(t, err)
+		assert.Equal(t, int64(1), *storedMetric.Delta)
+	})
 }
 
 func floatPtr(f float64) *float64 {

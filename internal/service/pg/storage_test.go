@@ -167,6 +167,53 @@ func TestUpdateMetric(t *testing.T) {
 	}
 }
 
+func TestUpdateMetrics(t *testing.T) {
+	tests := []struct {
+		name      string
+		metrics   []*models.Metrics
+		mockSetup func(m *mocks.MockRepository)
+		resError  error
+	}{
+		{
+			name: "successfully update metrics",
+			metrics: []*models.Metrics{
+				&models.Metrics{ID: "id", MType: models.Gauge, Delta: nil, Value: fltPtr(99.9), Hash: ""},
+				&models.Metrics{ID: "id", MType: models.Counter, Delta: intPtr(10), Value: nil, Hash: ""},
+			},
+			mockSetup: func(m *mocks.MockRepository) {
+				m.EXPECT().BatchUpdate([]*models.Metrics{
+					&models.Metrics{ID: "id", MType: models.Gauge, Delta: nil, Value: fltPtr(99.9), Hash: ""},
+					&models.Metrics{ID: "id", MType: models.Counter, Delta: intPtr(10), Value: nil, Hash: ""},
+				}).Return(nil)
+			},
+			resError: nil,
+		},
+		{
+			name:    "failed to update metrics",
+			metrics: []*models.Metrics{&models.Metrics{ID: "id", MType: models.Counter, Delta: intPtr(10), Value: nil, Hash: ""}},
+			mockSetup: func(m *mocks.MockRepository) {
+				m.EXPECT().BatchUpdate([]*models.Metrics{&models.Metrics{ID: "id", MType: models.Counter, Delta: intPtr(10), Value: nil, Hash: ""}}).Return(assert.AnError)
+			},
+			resError: assert.AnError,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			m := mocks.NewMockRepository(ctrl)
+			tt.mockSetup(m)
+
+			storage := NewPostgresStorage(m)
+
+			result := storage.UpdateMetrics(tt.metrics)
+			assert.Equal(t, tt.resError, result)
+		})
+	}
+}
+
 func fltPtr(f float64) *float64 {
 	return &f
 }

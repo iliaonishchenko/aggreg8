@@ -96,6 +96,38 @@ func TestGetAllMetrics(t *testing.T) {
 		assert.Len(t, results, 2)
 	})
 }
+func TestUpdateMetrics(t *testing.T) {
+	t.Run("successfully update metrics and save to file", func(t *testing.T) {
+		baseStorage := memory.NewMemStorage()
+		mockSaver := &mockMetricSaver{}
+		syncStorage := NewSyncStorage(baseStorage, mockSaver, "test.json")
+
+		metrics := []*models.Metrics{
+			&models.Metrics{
+				ID:    "temperature",
+				MType: models.Gauge,
+				Value: floatPtr(23.5),
+			},
+			&models.Metrics{
+				ID:    "requests",
+				MType: models.Counter,
+				Delta: intPtr(10),
+			},
+		}
+
+		err := syncStorage.UpdateMetrics(metrics)
+
+		require.NoError(t, err)
+		assert.True(t, mockSaver.saveToFileCalled, "SaveToFile should be called")
+		assert.Equal(t, "test.json", mockSaver.savedFilename)
+		assert.Len(t, mockSaver.savedMetrics, 2)
+		assert.Equal(t, "temperature", mockSaver.savedMetrics[0].ID)
+		assert.Equal(t, 23.5, *mockSaver.savedMetrics[0].Value)
+	})
+}
 func floatPtr(f float64) *float64 {
+	return &f
+}
+func intPtr(f int64) *int64 {
 	return &f
 }
