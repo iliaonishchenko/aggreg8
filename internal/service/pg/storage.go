@@ -35,3 +35,7 @@ func (s *PostgresStorage) GetAllMetrics() []*models.Metrics {
 	}
 	return metrics
 }
+
+func (s *PostgresStorage) UpdateMetrics(metrics []*models.Metrics) error {
+	return s.repo.BatchUpdate(metrics)
+}

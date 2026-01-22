@@ -41,3 +41,12 @@ func (ss *SyncStorage) GetMetric(metricName string) (*models.Metrics, error) {
 func (ss *SyncStorage) GetAllMetrics() []*models.Metrics {
 	return ss.storage.GetAllMetrics()
 }
+
+func (ss *SyncStorage) UpdateMetrics(metrics []*models.Metrics) error {
+	err := ss.storage.UpdateMetrics(metrics)
+	if err != nil {
+		return err
+	}
+	latestMetrics := ss.storage.GetAllMetrics()
+	return ss.saver.SaveToFile(ss.filename, latestMetrics)
+}

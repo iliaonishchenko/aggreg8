@@ -114,6 +114,10 @@ func run(cfg server.Config, storage service.MetricStorage, repo *repository.Metr
 			r.Use(middleware.AllowContentType("application/json"))
 			r.Post("/", updateHandler.HandleUpdateJSON)
 		})
+		r.Route("/updates", func(r chi.Router) {
+			r.Use(middleware.AllowContentType("application/json"))
+			r.Post("/", updateHandler.HandleBatchUpdateJSON)
+		})
 		r.Route("/update/{type}/{name}/{value}", func(r chi.Router) {
 			r.Use(middleware.AllowContentType("text/plain"))
 			r.Post("/", updateHandler.HandleUpdate)

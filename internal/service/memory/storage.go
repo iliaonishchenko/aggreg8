@@ -1,6 +1,7 @@
 package memory
 
 import (
+	"errors"
 	models "github.com/iliaonishchenko/aggreg8/internal/model"
 	"github.com/iliaonishchenko/aggreg8/internal/service"
 	"sync"
@@ -67,4 +68,13 @@ func (ms *MemStorage) GetAllMetrics() []*models.Metrics {
 	}
 
 	return results
+}
+
+func (ms *MemStorage) UpdateMetrics(metrics []*models.Metrics) error {
+	for _, metric := range metrics {
+		if ok := ms.UpdateMetric(metric); !ok {
+			return errors.New("failed to update metric")
+		}
+	}
+	return nil
 }
