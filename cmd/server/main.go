@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/iliaonishchenko/aggreg8"
 	"github.com/iliaonishchenko/aggreg8/internal/config/server"
 	"github.com/iliaonishchenko/aggreg8/internal/handler"
 	"github.com/iliaonishchenko/aggreg8/internal/logger"
@@ -34,6 +35,15 @@ func main() {
 
 	if err := logger.Initialize(cfg.LogLevel); err != nil {
 		log.Fatalf("error initializing logger: %v", err)
+	}
+
+	if cfg.DatabaseDSN != "" {
+		db, err := sql.Open("pgx", cfg.DatabaseDSN)
+		if err != nil {
+			logger.Log.Fatal("error connecting to database", zap.Error(err))
+		}
+		defer db.Close()
+		aggreg8.RunMigrations(db)
 	}
 
 	memStorage := service.NewMemStorage()
