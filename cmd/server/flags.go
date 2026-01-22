@@ -6,32 +6,37 @@ import (
 )
 
 func parseFlags(cfg *server.Config, defaultServerAddress string, defaultStoreInterval int, defaultFileStoragePath string, defaultRestore bool) {
+	var serverAddress string
+	var storeInterval int
+	var fileStoragePath string
+	var restore bool
+	var databaseDSN string
 
+	flag.StringVar(&serverAddress, "a", defaultServerAddress, "address and port to run server")
+	flag.IntVar(&storeInterval, "i", defaultStoreInterval, "interval to store aggregator data")
+	flag.StringVar(&fileStoragePath, "f", defaultFileStoragePath, "file path to store aggregator data")
+	flag.BoolVar(&restore, "r", defaultRestore, "restore aggregator data from file on startup")
+	flag.StringVar(&databaseDSN, "d", "", "database DSN")
+
+	flag.Parse()
+	
 	if cfg.ServerAddress == "" {
-		flag.StringVar(&cfg.ServerAddress, "a", defaultServerAddress, "address and port to run server")
+		cfg.ServerAddress = serverAddress
 	}
 
 	if cfg.StoreInterval == nil {
-		var storeInterval int
-		flag.IntVar(&storeInterval, "i", defaultStoreInterval, "interval to store aggregator data")
 		cfg.StoreInterval = &storeInterval
 	}
 
 	if cfg.FileStoragePath == nil {
-		var fileStoragePath string
-		flag.StringVar(&fileStoragePath, "f", defaultFileStoragePath, "file path to store aggregator data")
 		cfg.FileStoragePath = &fileStoragePath
 	}
 
 	if cfg.Restore == nil {
-		var restore bool
-		flag.BoolVar(&restore, "r", defaultRestore, "restore aggregator data from file on startup")
 		cfg.Restore = &restore
 	}
 
 	if cfg.DatabaseDSN == "" {
-		flag.StringVar(&cfg.DatabaseDSN, "d", "", "database DSN")
+		cfg.DatabaseDSN = databaseDSN
 	}
-
-	flag.Parse()
 }
