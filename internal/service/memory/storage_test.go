@@ -1,4 +1,4 @@
-package service
+package memory
 
 import (
 	models "github.com/iliaonishchenko/aggreg8/internal/model"
@@ -37,7 +37,7 @@ func TestUpdateMetric(t *testing.T) {
 		storedMetric, err := storage.GetMetric("requests")
 		assert.NoError(t, err)
 		assert.Equal(t, int64(1), *storedMetric.Delta)
-		
+
 		ok = storage.UpdateMetric(metric)
 		assert.True(t, ok)
 
