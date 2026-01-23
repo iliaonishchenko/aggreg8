@@ -10,17 +10,20 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"time"
 )
 
 type Sender struct {
-	endpoint string
-	client   http.Client
+	endpoint   string
+	client     http.Client
+	classifier *AgentErrorClassifier
 }
 
-func NewSender(endpoint string) *Sender {
+func NewSender(endpoint string, classifier *AgentErrorClassifier) *Sender {
 	return &Sender{
-		endpoint: endpoint,
-		client:   http.Client{},
+		endpoint:   endpoint,
+		client:     http.Client{},
+		classifier: classifier,
 	}
 }
 
@@ -47,38 +50,11 @@ func compressData(data []byte) (*bytes.Buffer, error) {
 }
 
 func (s *Sender) SendJSON(metrics ...*models.Metrics) error {
-	var uri string
-	var metricBuf *bytes.Buffer
-	var err error
-
-	if len(metrics) == 1 {
-		uri = fmt.Sprintf("http://%s/update", s.endpoint)
-		metric := metrics[0]
-		metricBuf, err = encodeJSON(metric)
-	} else {
-		uri = fmt.Sprintf("http://%s/updates", s.endpoint)
-		metricBuf, err = encodeJSON(metrics)
-	}
-
+	req, err := s.buildRequest(metrics...)
 	if err != nil {
-		logger.Log.Error("error encoding metric to JSON", logger.Err(err))
-		return err
+		return fmt.Errorf("error building request to agent %w", err)
 	}
 
-	compressedBuf, err := compressData(metricBuf.Bytes())
-	if err != nil {
-		logger.Log.Error("error compressing metric data", logger.Err(err))
-		return err
-	}
-
-	req, err := http.NewRequest("POST", uri, compressedBuf)
-	if err != nil {
-		logger.Log.Error("error creating request to agent", logger.Err(err))
-		return err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Content-Encoding", "gzip")
-	req.Header.Set("Accept-Encoding", "gzip")
 	resp, err := s.client.Do(req)
 
 	if err != nil {
@@ -131,4 +107,89 @@ func (s *Sender) buildMetricURL(baseURL string, metric *models.Metrics) string {
 		url.PathEscape(metric.ID),
 		url.PathEscape(metricValue),
 	)
+}
+
+func (s *Sender) SendJSONWithRetries(metrics ...*models.Metrics) error {
+	req, err := s.buildRequest(metrics...)
+	if err != nil {
+		return fmt.Errorf("error building request to agent %w", err)
+	}
+
+	return s.sendWithRetries(req)
+}
+
+func (s *Sender) buildRequest(metrics ...*models.Metrics) (*http.Request, error) {
+	var uri string
+	var metricBuf *bytes.Buffer
+	var err error
+
+	if len(metrics) == 1 {
+		uri = fmt.Sprintf("http://%s/update", s.endpoint)
+		metric := metrics[0]
+		metricBuf, err = encodeJSON(metric)
+	} else {
+		uri = fmt.Sprintf("http://%s/updates", s.endpoint)
+		metricBuf, err = encodeJSON(metrics)
+	}
+
+	if err != nil {
+		logger.Log.Error("error encoding metric to JSON", logger.Err(err))
+		return nil, err
+	}
+
+	compressedBuf, err := compressData(metricBuf.Bytes())
+	if err != nil {
+		logger.Log.Error("error compressing metric data", logger.Err(err))
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", uri, compressedBuf)
+	if err != nil {
+		logger.Log.Error("error creating request to agent", logger.Err(err))
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Encoding", "gzip")
+	req.Header.Set("Accept-Encoding", "gzip")
+
+	return req, nil
+}
+
+func (s *Sender) sendWithRetries(req *http.Request) error {
+	const (
+		maxAttempts = 4
+		deltaDelay  = 2 * time.Second
+	)
+	currDelay := 1 * time.Second
+	var lastErr error
+
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		if attempt != 0 {
+			time.Sleep(currDelay)
+			currDelay += deltaDelay
+		}
+
+		resp, err := s.client.Do(req)
+		if resp != nil {
+			resp.Body.Close()
+		}
+
+		if err == nil && resp.StatusCode == http.StatusOK {
+			return nil
+		}
+
+		if !s.classifier.isRetriable(err, resp) {
+			if err != nil {
+				return err
+			}
+			return fmt.Errorf("server returned non-retriable status: %d", resp.StatusCode)
+		}
+
+		if err != nil {
+			lastErr = err
+		} else {
+			lastErr = fmt.Errorf("server returned status: %d", resp.StatusCode)
+		}
+	}
+	return fmt.Errorf("failed after %d attempts: %w", maxAttempts, lastErr)
 }
