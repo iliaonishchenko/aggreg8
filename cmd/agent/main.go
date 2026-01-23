@@ -38,7 +38,8 @@ func main() {
 	flag.Parse()
 
 	collector := agent.NewCollector()
-	sender := agent.NewSender(config.ServerAddress)
+	errorClassifier := agent.NewAgentErrorClassifier()
+	sender := agent.NewSender(config.ServerAddress, errorClassifier)
 	collectTicker := time.NewTicker(time.Duration(config.PollInterval) * time.Second)
 	defer collectTicker.Stop()
 	sendTicker := time.NewTicker(time.Duration(config.ReportInterval) * time.Second)
@@ -63,5 +64,5 @@ func main() {
 }
 
 func sendMetrics(metrics []*models.Metrics, sender *agent.Sender) error {
-	return sender.SendJSON(metrics...)
+	return sender.SendJSONWithRetries(metrics...)
 }
