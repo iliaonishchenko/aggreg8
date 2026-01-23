@@ -2,7 +2,9 @@ package repository
 
 import (
 	"database/sql"
+	"fmt"
 	models "github.com/iliaonishchenko/aggreg8/internal/model"
+	"time"
 )
 
 type Repository interface {
@@ -14,11 +16,12 @@ type Repository interface {
 }
 
 type MetricsRepository struct {
-	db *sql.DB
+	db         *sql.DB
+	classifier *PostgresErrorClassifier
 }
 
-func NewMetricsRepository(db *sql.DB) *MetricsRepository {
-	return &MetricsRepository{db: db}
+func NewMetricsRepository(db *sql.DB, classifier *PostgresErrorClassifier) *MetricsRepository {
+	return &MetricsRepository{db: db, classifier: classifier}
 }
 
 func (r *MetricsRepository) DB() *sql.DB {
@@ -30,7 +33,8 @@ func (r *MetricsRepository) Ping() error {
 }
 
 func (r *MetricsRepository) Update(metric *models.Metrics) error {
-	gaugeQuery := `
+	return r.executeWithRetry(func() error {
+		gaugeQuery := `
 	INSERT INTO metrics (id, metric_type, delta, value)
 	VALUES ($1, $2, $3, $4)
 	ON CONFLICT (id)
@@ -39,7 +43,7 @@ func (r *MetricsRepository) Update(metric *models.Metrics) error {
 	   updated_at = CURRENT_TIMESTAMP
 	`
 
-	counterQuery := `
+		counterQuery := `
 	INSERT INTO metrics (id, metric_type, delta, value)
 	VALUES ($1, $2, $3, $4)
 	ON CONFLICT (id)
@@ -48,33 +52,34 @@ func (r *MetricsRepository) Update(metric *models.Metrics) error {
 	   updated_at = CURRENT_TIMESTAMP
 	`
 
-	if metric.MType == models.Gauge {
-		_, err := r.db.Exec(gaugeQuery,
-			metric.ID,
-			metric.MType,
-			nil,
-			metric.Value,
-		)
-		if err != nil {
-			return err
+		if metric.MType == models.Gauge {
+			_, err := r.db.Exec(gaugeQuery,
+				metric.ID,
+				metric.MType,
+				nil,
+				metric.Value,
+			)
+			if err != nil {
+				return err
+			}
+			return nil
 		}
-		return nil
-	}
 
-	if metric.MType == models.Counter {
-		_, err := r.db.Exec(counterQuery,
-			metric.ID,
-			metric.MType,
-			metric.Delta,
-			nil,
-		)
-		if err != nil {
-			return err
+		if metric.MType == models.Counter {
+			_, err := r.db.Exec(counterQuery,
+				metric.ID,
+				metric.MType,
+				metric.Delta,
+				nil,
+			)
+			if err != nil {
+				return err
+			}
+			return nil
 		}
-		return nil
-	}
 
-	return nil
+		return nil
+	})
 }
 
 func (r *MetricsRepository) Get(metricName string) (*models.Metrics, error) {
@@ -137,13 +142,14 @@ func (r *MetricsRepository) GetAll() ([]*models.Metrics, error) {
 }
 
 func (r *MetricsRepository) BatchUpdate(metrics []*models.Metrics) error {
-	tx, err := r.db.Begin()
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
+	return r.executeWithRetry(func() error {
+		tx, err := r.db.Begin()
+		if err != nil {
+			return err
+		}
+		defer tx.Rollback()
 
-	gaugeStmt, err := tx.Prepare(`
+		gaugeStmt, err := tx.Prepare(`
 		INSERT INTO metrics (id, metric_type, delta, value)
 		VALUES ($1, $2, $3, $4)
 		ON CONFLICT (id)
@@ -151,12 +157,12 @@ func (r *MetricsRepository) BatchUpdate(metrics []*models.Metrics) error {
 		   value = EXCLUDED.value,
 		   updated_at = CURRENT_TIMESTAMP
 	`)
-	if err != nil {
-		return err
-	}
-	defer gaugeStmt.Close()
+		if err != nil {
+			return err
+		}
+		defer gaugeStmt.Close()
 
-	counterStmt, err := tx.Prepare(`
+		counterStmt, err := tx.Prepare(`
 		INSERT INTO metrics (id, metric_type, delta, value)
 		VALUES ($1, $2, $3, $4)
 		ON CONFLICT (id)
@@ -164,34 +170,61 @@ func (r *MetricsRepository) BatchUpdate(metrics []*models.Metrics) error {
 		   delta = COALESCE(metrics.delta, 0) + EXCLUDED.delta,
 		   updated_at = CURRENT_TIMESTAMP
 	`)
-	if err != nil {
-		return err
-	}
-	defer counterStmt.Close()
+		if err != nil {
+			return err
+		}
+		defer counterStmt.Close()
 
-	for _, metric := range metrics {
-		if metric.MType == models.Gauge {
-			_, err := gaugeStmt.Exec(
-				metric.ID,
-				metric.MType,
-				nil,
-				metric.Value,
-			)
-			if err != nil {
-				return err
-			}
-		} else if metric.MType == models.Counter {
-			_, err := counterStmt.Exec(
-				metric.ID,
-				metric.MType,
-				metric.Delta,
-				nil,
-			)
-			if err != nil {
-				return err
+		for _, metric := range metrics {
+			if metric.MType == models.Gauge {
+				_, err := gaugeStmt.Exec(
+					metric.ID,
+					metric.MType,
+					nil,
+					metric.Value,
+				)
+				if err != nil {
+					return err
+				}
+			} else if metric.MType == models.Counter {
+				_, err := counterStmt.Exec(
+					metric.ID,
+					metric.MType,
+					metric.Delta,
+					nil,
+				)
+				if err != nil {
+					return err
+				}
 			}
 		}
-	}
 
-	return tx.Commit()
+		return tx.Commit()
+	})
+}
+
+func (r *MetricsRepository) executeWithRetry(operation func() error) error {
+	const (
+		maxAttempts = 4
+		deltaDelay  = 2 * time.Second
+	)
+	currDelay := 1 * time.Second
+	var lastErr error
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		if attempt != 0 {
+			time.Sleep(currDelay)
+			currDelay += deltaDelay
+		}
+
+		err := operation()
+		if err == nil {
+			return nil
+		}
+
+		if !r.classifier.isRetriable(err) {
+			return err
+		}
+		lastErr = err
+	}
+	return fmt.Errorf("failed after %d attempts: %w", maxAttempts, lastErr)
 }
