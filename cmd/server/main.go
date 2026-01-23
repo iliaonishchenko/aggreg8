@@ -51,7 +51,8 @@ func main() {
 		defer db.Close()
 		aggreg8.RunMigrations(db)
 
-		repo = repository.NewMetricsRepository(db)
+		classifier := repository.NewPostgresErrorClassifier()
+		repo = repository.NewMetricsRepository(db, classifier)
 		storage = pg.NewPostgresStorage(repo)
 
 	} else {
