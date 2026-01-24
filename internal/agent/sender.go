@@ -155,6 +155,14 @@ func (s *Sender) buildRequest(metrics ...*models.Metrics) (*http.Request, error)
 	return req, nil
 }
 
+func (s *Sender) doSingleRequest(req *http.Request) (*http.Response, error) {
+	resp, err := s.client.Do(req)
+	if resp != nil {
+		defer resp.Body.Close()
+	}
+	return resp, err
+}
+
 func (s *Sender) sendWithRetries(req *http.Request) error {
 	const (
 		maxAttempts = 4
@@ -169,9 +177,9 @@ func (s *Sender) sendWithRetries(req *http.Request) error {
 			currDelay += deltaDelay
 		}
 
-		resp, err := s.client.Do(req)
+		resp, err := s.doSingleRequest(req)
 		if resp != nil {
-			resp.Body.Close()
+			defer resp.Body.Close()
 		}
 
 		if err == nil && resp.StatusCode == http.StatusOK {

@@ -7,14 +7,6 @@ import (
 	"time"
 )
 
-type Repository interface {
-	Ping() error
-	Update(metric *models.Metrics) error
-	Get(metricName string) (*models.Metrics, error)
-	GetAll() ([]*models.Metrics, error)
-	BatchUpdate(metrics []*models.Metrics) error
-}
-
 type MetricsRepository struct {
 	db         *sql.DB
 	classifier *PostgresErrorClassifier
@@ -34,51 +26,38 @@ func (r *MetricsRepository) Ping() error {
 
 func (r *MetricsRepository) Update(metric *models.Metrics) error {
 	return r.executeWithRetry(func() error {
-		gaugeQuery := `
-	INSERT INTO metrics (id, metric_type, delta, value)
-	VALUES ($1, $2, $3, $4)
-	ON CONFLICT (id)
-	DO UPDATE SET
-	   value = EXCLUDED.value,
-	   updated_at = CURRENT_TIMESTAMP
-	`
+		var query string
+		var delta, value interface{}
 
-		counterQuery := `
-	INSERT INTO metrics (id, metric_type, delta, value)
-	VALUES ($1, $2, $3, $4)
-	ON CONFLICT (id)
-	DO UPDATE SET
-	   delta = COALESCE(metrics.delta, 0) + EXCLUDED.delta,
-	   updated_at = CURRENT_TIMESTAMP
-	`
-
-		if metric.MType == models.Gauge {
-			_, err := r.db.Exec(gaugeQuery,
-				metric.ID,
-				metric.MType,
-				nil,
-				metric.Value,
-			)
-			if err != nil {
-				return err
-			}
+		switch metric.MType {
+		case models.Gauge:
+			query = `
+				INSERT INTO metrics (id, metric_type, delta, value)
+				VALUES ($1, $2, $3, $4)
+				ON CONFLICT (id)
+				DO UPDATE SET
+				   value = EXCLUDED.value,
+				   updated_at = CURRENT_TIMESTAMP
+			`
+			delta = nil
+			value = metric.Value
+		case models.Counter:
+			query = `
+				INSERT INTO metrics (id, metric_type, delta, value)
+				VALUES ($1, $2, $3, $4)
+				ON CONFLICT (id)
+				DO UPDATE SET
+				   delta = COALESCE(metrics.delta, 0) + EXCLUDED.delta,
+				   updated_at = CURRENT_TIMESTAMP
+			`
+			delta = metric.Delta
+			value = nil
+		default:
 			return nil
 		}
 
-		if metric.MType == models.Counter {
-			_, err := r.db.Exec(counterQuery,
-				metric.ID,
-				metric.MType,
-				metric.Delta,
-				nil,
-			)
-			if err != nil {
-				return err
-			}
-			return nil
-		}
-
-		return nil
+		_, err := r.db.Exec(query, metric.ID, metric.MType, delta, value)
+		return err
 	})
 }
 
@@ -221,7 +200,7 @@ func (r *MetricsRepository) executeWithRetry(operation func() error) error {
 			return nil
 		}
 
-		if !r.classifier.isRetriable(err) {
+		if !r.classifier.IsRetriable(err) {
 			return err
 		}
 		lastErr = err

@@ -3,14 +3,21 @@ package pg
 import (
 	"github.com/iliaonishchenko/aggreg8/internal/logger"
 	models "github.com/iliaonishchenko/aggreg8/internal/model"
-	"github.com/iliaonishchenko/aggreg8/internal/repository"
 )
 
-type PostgresStorage struct {
-	repo repository.Repository
+type MetricsRepository interface {
+	Ping() error
+	Update(metric *models.Metrics) error
+	Get(metricName string) (*models.Metrics, error)
+	GetAll() ([]*models.Metrics, error)
+	BatchUpdate(metrics []*models.Metrics) error
 }
 
-func NewPostgresStorage(repo repository.Repository) *PostgresStorage {
+type PostgresStorage struct {
+	repo MetricsRepository
+}
+
+func NewPostgresStorage(repo MetricsRepository) *PostgresStorage {
 	return &PostgresStorage{repo: repo}
 }
 
