@@ -121,8 +121,16 @@ func TestUpdateMetrics(t *testing.T) {
 		assert.True(t, mockSaver.saveToFileCalled, "SaveToFile should be called")
 		assert.Equal(t, "test.json", mockSaver.savedFilename)
 		assert.Len(t, mockSaver.savedMetrics, 2)
-		assert.Equal(t, "temperature", mockSaver.savedMetrics[0].ID)
-		assert.Equal(t, 23.5, *mockSaver.savedMetrics[0].Value)
+
+		metricsMap := make(map[string]*models.Metrics)
+		for _, m := range mockSaver.savedMetrics {
+			metricsMap[m.ID] = m
+		}
+
+		assert.Contains(t, metricsMap, "temperature")
+		assert.Equal(t, 23.5, *metricsMap["temperature"].Value)
+		assert.Contains(t, metricsMap, "requests")
+		assert.Equal(t, int64(10), *metricsMap["requests"].Delta)
 	})
 }
 func floatPtr(f float64) *float64 {

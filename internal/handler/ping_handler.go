@@ -1,15 +1,18 @@
 package handler
 
 import (
-	"github.com/iliaonishchenko/aggreg8/internal/repository"
 	"net/http"
 )
 
-type PingHandler struct {
-	db *repository.MetricsRepository
+type Repository interface {
+	Ping() error
 }
 
-func NewPingHandler(db *repository.MetricsRepository) *PingHandler {
+type PingHandler struct {
+	db Repository
+}
+
+func NewPingHandler(db Repository) *PingHandler {
 	return &PingHandler{db: db}
 }
 
