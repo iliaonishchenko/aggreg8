@@ -11,7 +11,7 @@ func NewPostgresErrorClassifier() *PostgresErrorClassifier {
 	return &PostgresErrorClassifier{}
 }
 
-func (c *PostgresErrorClassifier) isRetriable(err error) bool {
+func (c *PostgresErrorClassifier) IsRetriable(err error) bool {
 	if err == nil {
 		return false
 	}

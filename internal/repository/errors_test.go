@@ -106,7 +106,7 @@ func TestPostgresErrorClassifier_isRetriable(t *testing.T) {
 	classifier := NewPostgresErrorClassifier()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := classifier.isRetriable(tt.err)
+			got := classifier.IsRetriable(tt.err)
 			assert.Equal(t, tt.want, got)
 		})
 	}

@@ -23,22 +23,7 @@ import (
 	"time"
 )
 
-func main() {
-	defaultServerAddress := "localhost:8080"
-	defaultStoreInterval := 300
-	defaultFileStoragePath := "./snapshot.json"
-	defaultRestore := false
-	cfg, err := server.LoadConfig()
-	if err != nil {
-		log.Fatalf("error loading config: %v", err)
-	}
-
-	parseFlags(cfg, defaultServerAddress, defaultStoreInterval, defaultFileStoragePath, defaultRestore)
-
-	if err := logger.Initialize(cfg.LogLevel); err != nil {
-		log.Fatalf("error initializing logger: %v", err)
-	}
-
+func initStorage(cfg *server.Config) (service.MetricStorage, *repository.MetricsRepository, context.CancelFunc) {
 	var storage service.MetricStorage
 	var cancelFunc context.CancelFunc
 	var repo *repository.MetricsRepository
@@ -48,13 +33,11 @@ func main() {
 		if err != nil {
 			logger.Log.Fatal("error connecting to database", zap.Error(err))
 		}
-		defer db.Close()
 		aggreg8.RunMigrations(db)
 
 		classifier := repository.NewPostgresErrorClassifier()
 		repo = repository.NewMetricsRepository(db, classifier)
 		storage = pg.NewPostgresStorage(repo)
-
 	} else {
 		memStorage := memory.NewMemStorage()
 		fileStorage := file.NewFileStorage()
@@ -80,6 +63,27 @@ func main() {
 			go persister.Start(ctx)
 		}
 	}
+
+	return storage, repo, cancelFunc
+}
+
+func main() {
+	defaultServerAddress := "localhost:8080"
+	defaultStoreInterval := 300
+	defaultFileStoragePath := "./snapshot.json"
+	defaultRestore := false
+	cfg, err := server.LoadConfig()
+	if err != nil {
+		log.Fatalf("error loading config: %v", err)
+	}
+
+	parseFlags(cfg, defaultServerAddress, defaultStoreInterval, defaultFileStoragePath, defaultRestore)
+
+	if err := logger.Initialize(cfg.LogLevel); err != nil {
+		log.Fatalf("error initializing logger: %v", err)
+	}
+
+	storage, repo, cancelFunc := initStorage(cfg)
 
 	if err := run(*cfg, storage, repo); err != nil {
 		if cancelFunc != nil {
