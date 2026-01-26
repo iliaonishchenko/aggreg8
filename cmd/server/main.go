@@ -16,6 +16,7 @@ import (
 	"github.com/iliaonishchenko/aggreg8/internal/service/memory"
 	"github.com/iliaonishchenko/aggreg8/internal/service/pg"
 	"github.com/iliaonishchenko/aggreg8/internal/service/sync"
+	"github.com/iliaonishchenko/aggreg8/internal/signature"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"
 	"log"
@@ -72,12 +73,14 @@ func main() {
 	defaultStoreInterval := 300
 	defaultFileStoragePath := "./snapshot.json"
 	defaultRestore := false
+	defaultKey := ""
+
 	cfg, err := server.LoadConfig()
 	if err != nil {
 		log.Fatalf("error loading config: %v", err)
 	}
 
-	parseFlags(cfg, defaultServerAddress, defaultStoreInterval, defaultFileStoragePath, defaultRestore)
+	parseFlags(cfg, defaultServerAddress, defaultStoreInterval, defaultFileStoragePath, defaultRestore, defaultKey)
 
 	if err := logger.Initialize(cfg.LogLevel); err != nil {
 		log.Fatalf("error initializing logger: %v", err)
@@ -101,9 +104,11 @@ func run(cfg server.Config, storage service.MetricStorage, repo *repository.Metr
 	allHandler := handler.NewAllMetricsHandler(storage)
 	getMetricHandler := handler.NewGetMetricHandler(storage)
 	pingHandler := handler.NewPingHandler(repo)
+	sign := signature.NewSignature(cfg.Key)
 
 	r.Use(logger.WithLogger)
 	r.Use(router.WithCompression)
+	r.Use(router.WithHash(sign))
 
 	r.Route("/", func(r chi.Router) {
 		r.Get("/ping", pingHandler.HandlePing)

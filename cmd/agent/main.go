@@ -6,6 +6,7 @@ import (
 	"github.com/iliaonishchenko/aggreg8/internal/agent"
 	agentconfig "github.com/iliaonishchenko/aggreg8/internal/config/agent"
 	models "github.com/iliaonishchenko/aggreg8/internal/model"
+	"github.com/iliaonishchenko/aggreg8/internal/signature"
 	"log"
 	"os"
 	"os/signal"
@@ -86,11 +87,11 @@ func sendMetrics(metrics []*models.Metrics, sender *agent.Sender) error {
 
 func initSender(config *agentconfig.Config) *agent.Sender {
 	var sender *agent.Sender
-	var sign *agent.Signature
+	var sign *signature.Signature
 	errorClassifier := agent.NewAgentErrorClassifier()
 
 	if config.Key != "" {
-		sign = agent.NewSignature(config.Key)
+		sign = signature.NewSignature(config.Key)
 		sender = agent.NewSender(config.ServerAddress, errorClassifier, sign)
 	} else {
 		sender = agent.NewSender(config.ServerAddress, errorClassifier, nil)
