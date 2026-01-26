@@ -1,4 +1,4 @@
-package agent
+package signature
 
 import (
 	"crypto/hmac"
@@ -21,4 +21,8 @@ func (s *Signature) Sign(src []byte) string {
 	dst := h.Sum(nil)
 	dstStr = hex.EncodeToString(dst)
 	return dstStr
+}
+
+func (s *Signature) Key() string {
+	return s.key
 }
