@@ -1,4 +1,4 @@
-package agent
+package signature
 
 import (
 	"crypto/hmac"
