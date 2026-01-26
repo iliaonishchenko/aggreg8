@@ -13,17 +13,23 @@ import (
 	"time"
 )
 
+type DataSignature interface {
+	Sign(src []byte) string
+}
+
 type Sender struct {
 	endpoint   string
 	client     http.Client
 	classifier *AgentErrorClassifier
+	signature  DataSignature
 }
 
-func NewSender(endpoint string, classifier *AgentErrorClassifier) *Sender {
+func NewSender(endpoint string, classifier *AgentErrorClassifier, signature DataSignature) *Sender {
 	return &Sender{
 		endpoint:   endpoint,
 		client:     http.Client{},
 		classifier: classifier,
+		signature:  signature,
 	}
 }
 
@@ -148,6 +154,12 @@ func (s *Sender) buildRequest(metrics ...*models.Metrics) (*http.Request, error)
 		logger.Log.Error("error creating request to agent", logger.Err(err))
 		return nil, err
 	}
+
+	signature, signed := s.getSignature(metricBuf.Bytes())
+	if signed {
+		req.Header.Set("HashSHA256", signature)
+	}
+
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Content-Encoding", "gzip")
 	req.Header.Set("Accept-Encoding", "gzip")
@@ -200,4 +212,11 @@ func (s *Sender) sendWithRetries(req *http.Request) error {
 		}
 	}
 	return fmt.Errorf("failed after %d attempts: %w", maxAttempts, lastErr)
+}
+
+func (s *Sender) getSignature(src []byte) (string, bool) {
+	if s.signature == nil {
+		return "", false
+	}
+	return s.signature.Sign(src), true
 }
