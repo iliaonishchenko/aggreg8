@@ -13,6 +13,34 @@ import (
 	"time"
 )
 
+func parseFlags(cfg *agentconfig.Config, defaultServerAddress, defaultKey string, defaultReportInterval, defaultPollInterval int) {
+	var serverAddress string
+	var key string
+	var reportInterval int
+	var pollInterval int
+
+	flag.StringVar(&serverAddress, "a", defaultServerAddress, "address and port to run server")
+	flag.IntVar(&reportInterval, "r", defaultReportInterval, "report interval in seconds")
+	flag.IntVar(&pollInterval, "p", defaultPollInterval, "poll interval in seconds")
+	flag.StringVar(&key, "k", defaultKey, "key")
+
+	flag.Parse()
+
+	if cfg.ServerAddress == "" {
+		cfg.ServerAddress = serverAddress
+	}
+	if cfg.ReportInterval == 0 {
+		cfg.ReportInterval = reportInterval
+	}
+	if cfg.PollInterval == 0 {
+		cfg.PollInterval = pollInterval
+	}
+
+	if cfg.Key == "" {
+		cfg.Key = key
+	}
+}
+
 func main() {
 
 	defaultServerAddress := "localhost:8080"
@@ -25,21 +53,10 @@ func main() {
 		log.Fatalf("error loading config: %v", err)
 	}
 
-	if config.ServerAddress == "" {
-		flag.StringVar(&config.ServerAddress, "a", defaultServerAddress, "address and port to run server")
-	}
-	if config.ReportInterval == 0 {
-		flag.IntVar(&config.ReportInterval, "r", defaultReportInterval, "report interval in seconds")
-	}
-	if config.PollInterval == 0 {
-		flag.IntVar(&config.PollInterval, "p", defaultPollInterval, "poll interval in seconds")
-	}
-
-	flag.Parse()
+	parseFlags(config, defaultServerAddress, "", defaultReportInterval, defaultPollInterval)
 
 	collector := agent.NewCollector()
-	errorClassifier := agent.NewAgentErrorClassifier()
-	sender := agent.NewSender(config.ServerAddress, errorClassifier)
+	sender := initSender(config)
 	collectTicker := time.NewTicker(time.Duration(config.PollInterval) * time.Second)
 	defer collectTicker.Stop()
 	sendTicker := time.NewTicker(time.Duration(config.ReportInterval) * time.Second)
@@ -65,4 +82,19 @@ func main() {
 
 func sendMetrics(metrics []*models.Metrics, sender *agent.Sender) error {
 	return sender.SendJSONWithRetries(metrics...)
+}
+
+func initSender(config *agentconfig.Config) *agent.Sender {
+	var sender *agent.Sender
+	var sign *agent.Signature
+	errorClassifier := agent.NewAgentErrorClassifier()
+
+	if config.Key != "" {
+		sign = agent.NewSignature(config.Key)
+		sender = agent.NewSender(config.ServerAddress, errorClassifier, sign)
+	} else {
+		sender = agent.NewSender(config.ServerAddress, errorClassifier, nil)
+	}
+
+	return sender
 }
