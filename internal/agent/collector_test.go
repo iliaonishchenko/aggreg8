@@ -6,12 +6,12 @@ import (
 	"testing"
 )
 
-func TestCollect(t *testing.T) {
-	t.Run("collects all expected metrics", func(t *testing.T) {
+func TestCollectRuntime(t *testing.T) {
+	t.Run("collects all expected runtime metrics", func(t *testing.T) {
 		collector := NewCollector()
-		collector.Collect()
+		collector.CollectRuntime()
 
-		metrics := collector.GetMetrics()
+		metrics := collector.GetMetrics()[0]
 		assert.Contains(t, getNames(metrics), "Alloc")
 		assert.Contains(t, getNames(metrics), "PollCount")
 		assert.Contains(t, getNames(metrics), "RandomValue")
@@ -20,16 +20,56 @@ func TestCollect(t *testing.T) {
 	t.Run("PollCount delta accumulates", func(t *testing.T) {
 		collector := NewCollector()
 
-		collector.Collect()
-		metrics := collector.GetMetrics()
+		collector.CollectRuntime()
+		metrics := collector.GetMetrics()[0]
 		pollCount := getMetricByName("PollCount", metrics)
 		assert.Equal(t, models.Counter, pollCount.MType)
 		assert.Equal(t, int64(0), *pollCount.Delta)
 
-		collector.Collect()
-		metrics = collector.GetMetrics()
+		collector.CollectRuntime()
+		metrics = collector.GetMetrics()[0]
 		pollCount = getMetricByName("PollCount", metrics)
 		assert.Equal(t, int64(1), *pollCount.Delta)
+	})
+	t.Run("Runtime metrics accumulate", func(t *testing.T) {
+		collector := NewCollector()
+
+		collector.CollectRuntime()
+		collector.CollectRuntime()
+		metrics := collector.GetMetrics()
+		assert.Equal(t, 2, len(metrics))
+		assert.Contains(t, getNames(metrics[0]), "Alloc")
+		assert.Contains(t, getNames(metrics[0]), "PollCount")
+		assert.Contains(t, getNames(metrics[0]), "RandomValue")
+		assert.Contains(t, getNames(metrics[1]), "Alloc")
+		assert.Contains(t, getNames(metrics[1]), "PollCount")
+		assert.Contains(t, getNames(metrics[1]), "RandomValue")
+	})
+}
+
+func TestCollectSystem(t *testing.T) {
+	t.Run("collects system metrics", func(t *testing.T) {
+		collector := NewCollector()
+		collector.CollectSystem()
+
+		metrics := collector.GetMetrics()[0]
+		assert.Contains(t, getNames(metrics), "TotalMemory")
+		assert.Contains(t, getNames(metrics), "FreeMemory")
+		assert.Contains(t, getNames(metrics), "CPUutilization1")
+	})
+	t.Run("System metrics accumulate", func(t *testing.T) {
+		collector := NewCollector()
+
+		collector.CollectSystem()
+		collector.CollectSystem()
+		metrics := collector.GetMetrics()
+		assert.Equal(t, 2, len(metrics))
+		assert.Contains(t, getNames(metrics[0]), "TotalMemory")
+		assert.Contains(t, getNames(metrics[0]), "FreeMemory")
+		assert.Contains(t, getNames(metrics[0]), "CPUutilization1")
+		assert.Contains(t, getNames(metrics[1]), "TotalMemory")
+		assert.Contains(t, getNames(metrics[1]), "FreeMemory")
+		assert.Contains(t, getNames(metrics[1]), "CPUutilization1")
 	})
 }
 

@@ -2,28 +2,24 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"github.com/iliaonishchenko/aggreg8/internal/agent"
 	agentconfig "github.com/iliaonishchenko/aggreg8/internal/config/agent"
-	models "github.com/iliaonishchenko/aggreg8/internal/model"
 	"github.com/iliaonishchenko/aggreg8/internal/signature"
 	"log"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
 )
 
-func parseFlags(cfg *agentconfig.Config, defaultServerAddress, defaultKey string, defaultReportInterval, defaultPollInterval int) {
+func parseFlags(cfg *agentconfig.Config, defaultServerAddress, defaultKey string, defaultReportInterval, defaultPollInterval, defaultRateLimit int) {
 	var serverAddress string
 	var key string
 	var reportInterval int
 	var pollInterval int
+	var rateLimit int
 
 	flag.StringVar(&serverAddress, "a", defaultServerAddress, "address and port to run server")
 	flag.IntVar(&reportInterval, "r", defaultReportInterval, "report interval in seconds")
 	flag.IntVar(&pollInterval, "p", defaultPollInterval, "poll interval in seconds")
 	flag.StringVar(&key, "k", defaultKey, "key")
+	flag.IntVar(&rateLimit, "l", defaultRateLimit, "rate limit")
 
 	flag.Parse()
 
@@ -36,9 +32,11 @@ func parseFlags(cfg *agentconfig.Config, defaultServerAddress, defaultKey string
 	if cfg.PollInterval == 0 {
 		cfg.PollInterval = pollInterval
 	}
-
 	if cfg.Key == "" {
 		cfg.Key = key
+	}
+	if cfg.RateLimit == 0 {
+		cfg.RateLimit = rateLimit
 	}
 }
 
@@ -47,6 +45,7 @@ func main() {
 	defaultServerAddress := "localhost:8080"
 	defaultReportInterval := 10
 	defaultPollInterval := 2
+	defaultRateLimit := 5
 
 	config, err := agentconfig.LoadConfig()
 
@@ -54,35 +53,12 @@ func main() {
 		log.Fatalf("error loading config: %v", err)
 	}
 
-	parseFlags(config, defaultServerAddress, "", defaultReportInterval, defaultPollInterval)
+	parseFlags(config, defaultServerAddress, "", defaultReportInterval, defaultPollInterval, defaultRateLimit)
 
 	collector := agent.NewCollector()
 	sender := initSender(config)
-	collectTicker := time.NewTicker(time.Duration(config.PollInterval) * time.Second)
-	defer collectTicker.Stop()
-	sendTicker := time.NewTicker(time.Duration(config.ReportInterval) * time.Second)
-	defer sendTicker.Stop()
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-
-	for {
-		select {
-		case <-collectTicker.C:
-			collector.Collect()
-		case <-sendTicker.C:
-			metrics := collector.GetMetrics()
-			if err = sendMetrics(metrics, sender); err != nil {
-				log.Printf("error sending metrics: %v", err)
-			}
-		case <-sigChan:
-			fmt.Println("Shutting down...")
-			return
-		}
-	}
-}
-
-func sendMetrics(metrics []*models.Metrics, sender *agent.Sender) error {
-	return sender.SendJSONWithRetries(metrics...)
+	app := agent.NewAgent(collector, sender, config.PollInterval, config.ReportInterval, config.RateLimit)
+	app.Run()
 }
 
 func initSender(config *agentconfig.Config) *agent.Sender {
