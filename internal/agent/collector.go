@@ -1,25 +1,34 @@
 package agent
 
 import (
+	"fmt"
 	models "github.com/iliaonishchenko/aggreg8/internal/model"
+	cpu2 "github.com/shirou/gopsutil/cpu"
+	"github.com/shirou/gopsutil/mem"
+	"log"
 	"math/rand/v2"
 	"runtime"
+	"sync"
 )
 
 type Collector struct {
 	pollCount int64
-	Metrics   []*models.Metrics
+	Metrics   [][]*models.Metrics
+	mu        sync.Mutex
 }
 
 func NewCollector() *Collector {
 	return &Collector{}
 }
 
-func (c *Collector) Collect() {
+func (c *Collector) CollectRuntime() {
+	log.Printf("Collecting runtime metrics")
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 
-	c.Metrics = []*models.Metrics{
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	newMetrics := []*models.Metrics{
 		{ID: "Alloc", MType: models.Gauge, Value: float64Ptr(float64(m.Alloc))},
 		{ID: "BuckHashSys", MType: models.Gauge, Value: float64Ptr(float64(m.BuckHashSys))},
 		{ID: "Frees", MType: models.Gauge, Value: float64Ptr(float64(m.Frees))},
@@ -50,12 +59,37 @@ func (c *Collector) Collect() {
 		{ID: "PollCount", MType: models.Counter, Delta: int64Ptr(c.pollCount)},
 		{ID: "RandomValue", MType: models.Gauge, Value: float64Ptr(rand.Float64())},
 	}
+	c.Metrics = append(c.Metrics, newMetrics)
 	c.pollCount++
 }
 
-func (c *Collector) GetMetrics() []*models.Metrics {
-	result := make([]*models.Metrics, len(c.Metrics))
+func (c *Collector) CollectSystem() {
+	log.Printf("Collecting system metrics")
+	v, _ := mem.VirtualMemory()
+	perCPUs, _ := cpu2.Percent(0, true)
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	newMetrics := []*models.Metrics{
+		{ID: "TotalMemory", MType: models.Gauge, Value: float64Ptr(float64(v.Total))},
+		{ID: "FreeMemory", MType: models.Gauge, Value: float64Ptr(float64(v.Free))},
+	}
+	for i, cpu := range perCPUs {
+		newMetrics = append(newMetrics, &models.Metrics{
+			ID:    fmt.Sprintf("CPUutilization%d", i+1),
+			MType: models.Gauge,
+			Value: float64Ptr(cpu),
+		})
+	}
+	c.Metrics = append(c.Metrics, newMetrics)
+}
+
+func (c *Collector) GetMetrics() [][]*models.Metrics {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	result := make([][]*models.Metrics, len(c.Metrics))
 	copy(result, c.Metrics)
+	c.Metrics = [][]*models.Metrics{}
 	return result
 }
 
