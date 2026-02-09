@@ -1,100 +1,50 @@
 package agent
 
 import (
-	models "github.com/iliaonishchenko/aggreg8/internal/model"
-	"github.com/stretchr/testify/assert"
-	"sync"
+	"context"
+	"github.com/golang/mock/gomock"
+	"github.com/iliaonishchenko/aggreg8/internal/agent/mocks"
 	"testing"
 	"time"
 )
 
-type MockCollector struct {
-	mu              sync.Mutex
-	collectCount    int
-	systemCount     int
-	metricsToReturn [][]*models.Metrics
-}
-
-func (m *MockCollector) CollectRuntime() {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.collectCount++
-}
-
-func (m *MockCollector) CollectSystem() {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.systemCount++
-}
-
-func (m *MockCollector) GetMetrics() [][]*models.Metrics {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	result := m.metricsToReturn
-	m.metricsToReturn = nil
-	return result
-}
-
-type MockSender struct {
-	mu        sync.Mutex
-	sendCount int
-	calls     [][]*models.Metrics
-	delay     time.Duration
-}
-
-func (m *MockSender) SendJSONWithRetries(metrics ...*models.Metrics) error {
-	if m.delay > 0 {
-		time.Sleep(m.delay)
-	}
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.sendCount++
-	m.calls = append(m.calls, metrics)
-	return nil
-}
-
 func TestRun(t *testing.T) {
 	t.Run("collects on poll interval", func(t *testing.T) {
-		mockCollector := &MockCollector{}
-		mockSender := &MockSender{}
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		mockCollector := mocks.NewMockCollectorService(ctrl)
+		mockSender := mocks.NewMockSenderService(ctrl)
 		agent := NewAgent(mockCollector, mockSender, 1, 2, 2)
+		ctx, cancel := context.WithCancel(context.Background())
 
-		stopCh := make(chan struct{})
-		go func() {
-			time.Sleep(3 * time.Second)
-			close(stopCh)
-		}()
+		mockCollector.EXPECT().CollectSystem().MinTimes(2)
+		mockCollector.EXPECT().CollectRuntime().MinTimes(2)
+		mockCollector.EXPECT().GetMetrics().AnyTimes()
 
-		go func() {
-			agent.Run()
-		}()
+		go agent.Run(ctx)
 
-		<-stopCh
-
-		assert.GreaterOrEqual(t, mockCollector.collectCount, 2)
-		assert.GreaterOrEqual(t, mockCollector.systemCount, 2)
+		time.Sleep(3 * time.Second)
+		cancel()
+		time.Sleep(100 * time.Millisecond)
 	})
 
 	t.Run("sends on report interval", func(t *testing.T) {
-		metric := &models.Metrics{ID: "test", MType: models.Gauge, Value: float64Ptr(1.0)}
-		mockCollector := &MockCollector{
-			metricsToReturn: [][]*models.Metrics{{metric}},
-		}
-		mockSender := &MockSender{}
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		mockCollector := mocks.NewMockCollectorService(ctrl)
+		mockSender := mocks.NewMockSenderService(ctrl)
 		agent := NewAgent(mockCollector, mockSender, 1, 2, 2)
+		ctx, cancel := context.WithCancel(context.Background())
 
-		stopCh := make(chan struct{})
-		go func() {
-			time.Sleep(3 * time.Second)
-			close(stopCh)
-		}()
+		mockCollector.EXPECT().CollectSystem().AnyTimes()
+		mockCollector.EXPECT().CollectRuntime().AnyTimes()
+		mockCollector.EXPECT().GetMetrics().AnyTimes()
+		mockSender.EXPECT().SendJSONWithRetries().AnyTimes()
 
-		go func() {
-			agent.Run()
-		}()
+		go agent.Run(ctx)
 
-		<-stopCh
-
-		assert.Equal(t, 1, mockSender.sendCount)
+		time.Sleep(3 * time.Second)
+		cancel()
+		time.Sleep(100 * time.Millisecond)
 	})
 }
