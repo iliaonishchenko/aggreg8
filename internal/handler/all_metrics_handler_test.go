@@ -32,7 +32,7 @@ func TestHandleAllMetrics(t *testing.T) {
 				contentType: "text/html; charset=utf-8",
 				containsStrings: []string{
 					"<html>",
-					"<h1>All Metrics</h1>",
+					"<h1>All metrics</h1>",
 					"<table",
 					"</table>",
 				},

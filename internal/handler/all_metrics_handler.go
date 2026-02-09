@@ -22,8 +22,8 @@ func (amh *AllMetricsHandler) HandleAll(w http.ResponseWriter, r *http.Request) 
 	metrics := amh.storage.GetAllMetrics()
 
 	var html strings.Builder
-	html.WriteString("<html><head><title>Metrics</title></head><body>")
-	html.WriteString("<h1>All Metrics</h1>")
+	html.WriteString("<html><head><title>metrics</title></head><body>")
+	html.WriteString("<h1>All metrics</h1>")
 	html.WriteString("<table border='1' cellpadding='10'>")
 	html.WriteString("<tr><th>Name</th><th>Type</th><th>Value</th></tr>")
 
