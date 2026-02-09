@@ -21,5 +21,5 @@ type Metrics struct {
 }
 
 func (m *Metrics) String() string {
-	return fmt.Sprintf("Metrics{ID: %s, MType: %s, Delta: %v, Value: %v, Hash: %s}", m.ID, m.MType, m.Delta, m.Value, m.Hash)
+	return fmt.Sprintf("metrics{ID: %s, MType: %s, Delta: %v, Value: %v, Hash: %s}", m.ID, m.MType, m.Delta, m.Value, m.Hash)
 }

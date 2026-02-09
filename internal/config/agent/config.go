@@ -10,6 +10,7 @@ type Config struct {
 	PollInterval   int    `env:"POLL_INTERVAL"`
 	Key            string `env:"KEY"`
 	RateLimit      int    `env:"RATE_LIMIT"`
+	LogLevel       string `env:"LOG_LEVEL" envDefault:"info"`
 }
 
 func LoadConfig() (*Config, error) {

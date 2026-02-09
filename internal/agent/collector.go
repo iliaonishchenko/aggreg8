@@ -2,10 +2,10 @@ package agent
 
 import (
 	"fmt"
+	"github.com/iliaonishchenko/aggreg8/internal/logger"
 	models "github.com/iliaonishchenko/aggreg8/internal/model"
 	cpu2 "github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/mem"
-	"log"
 	"math/rand/v2"
 	"runtime"
 	"sync"
@@ -13,7 +13,7 @@ import (
 
 type Collector struct {
 	pollCount int64
-	Metrics   [][]*models.Metrics
+	metrics   [][]*models.Metrics
 	mu        sync.Mutex
 }
 
@@ -22,7 +22,7 @@ func NewCollector() *Collector {
 }
 
 func (c *Collector) CollectRuntime() {
-	log.Printf("Collecting runtime metrics")
+	logger.Log.Info("Collecting runtime metrics")
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 
@@ -59,14 +59,22 @@ func (c *Collector) CollectRuntime() {
 		{ID: "PollCount", MType: models.Counter, Delta: int64Ptr(c.pollCount)},
 		{ID: "RandomValue", MType: models.Gauge, Value: float64Ptr(rand.Float64())},
 	}
-	c.Metrics = append(c.Metrics, newMetrics)
+	c.metrics = append(c.metrics, newMetrics)
 	c.pollCount++
 }
 
 func (c *Collector) CollectSystem() {
-	log.Printf("Collecting system metrics")
-	v, _ := mem.VirtualMemory()
-	perCPUs, _ := cpu2.Percent(0, true)
+	logger.Log.Info("Collecting system metrics")
+	v, err := mem.VirtualMemory()
+	if err != nil {
+		logger.Log.Error("Error collecting memory metrics", logger.Err(err))
+		return
+	}
+	perCPUs, err := cpu2.Percent(0, true)
+	if err != nil {
+		logger.Log.Error("Error collecting CPU metrics", logger.Err(err))
+		return
+	}
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -81,15 +89,15 @@ func (c *Collector) CollectSystem() {
 			Value: float64Ptr(cpu),
 		})
 	}
-	c.Metrics = append(c.Metrics, newMetrics)
+	c.metrics = append(c.metrics, newMetrics)
 }
 
 func (c *Collector) GetMetrics() [][]*models.Metrics {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	result := make([][]*models.Metrics, len(c.Metrics))
-	copy(result, c.Metrics)
-	c.Metrics = [][]*models.Metrics{}
+	result := make([][]*models.Metrics, len(c.metrics))
+	copy(result, c.metrics)
+	c.metrics = [][]*models.Metrics{}
 	return result
 }
 

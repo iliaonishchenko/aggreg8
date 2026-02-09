@@ -1,8 +1,9 @@
 package agent
 
 import (
+	"context"
+	"github.com/iliaonishchenko/aggreg8/internal/logger"
 	models "github.com/iliaonishchenko/aggreg8/internal/model"
-	"log"
 	"time"
 )
 
@@ -34,13 +35,12 @@ func NewAgent(collector CollectorService, sender SenderService, pollInterval, re
 	}
 }
 
-func (a *Agent) Run() {
+func (a *Agent) Run(ctx context.Context) {
 	collectTicker := time.NewTicker(time.Duration(a.pollInterval) * time.Second)
 	defer collectTicker.Stop()
 	reportTicker := time.NewTicker(time.Duration(a.reportInterval) * time.Second)
 	defer reportTicker.Stop()
 	jobsCh := make(chan []*models.Metrics, a.rateLimit)
-	stopCh := make(chan struct{})
 
 	for i := 0; i < a.rateLimit; i++ {
 		go a.worker(jobsCh)
@@ -58,10 +58,9 @@ func (a *Agent) Run() {
 					jobsCh <- metricBatch
 				}
 			}()
-		case <-stopCh:
-			log.Println("Shutting down agent...")
+		case <-ctx.Done():
+			logger.Log.Info("Shutting down agent...")
 			close(jobsCh)
-			close(stopCh)
 			return
 		}
 	}
@@ -69,10 +68,10 @@ func (a *Agent) Run() {
 
 func (a *Agent) worker(jobs <-chan []*models.Metrics) {
 	for metrics := range jobs {
-		log.Printf("Sending metrics %v", metrics[0])
+		logger.Log.Info("Sending metrics %v", logger.Field("metrics", metrics[0]))
 		err := a.sender.SendJSONWithRetries(metrics...)
 		if err != nil {
-			log.Printf("error sending metrics: %v", err)
+			logger.Log.Error("error sending metrics: %v", logger.Err(err))
 		}
 	}
 }
