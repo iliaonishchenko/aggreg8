@@ -125,6 +125,8 @@ func run(cfg server.Config, storage service.MetricStorage, repo *repository.Metr
 	r.Use(router.WithCompression)
 	r.Use(router.WithHash(sign))
 
+	r.Mount("/debug", middleware.Profiler())
+
 	r.Route("/", func(r chi.Router) {
 		r.Get("/ping", pingHandler.HandlePing)
 		r.Get("/", allHandler.HandleAll)

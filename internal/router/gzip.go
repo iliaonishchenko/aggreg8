@@ -5,7 +5,16 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 )
+
+var gzipWriterPool = sync.Pool{
+	New: func() any {
+		return gzip.NewWriter(io.Discard)
+	},
+}
+
+var gzipReaderPool = sync.Pool{}
 
 // compressWriter
 type compressWriter struct {
@@ -15,9 +24,11 @@ type compressWriter struct {
 }
 
 func newCompressWriter(w http.ResponseWriter) *compressWriter {
+	zw := gzipWriterPool.Get().(*gzip.Writer)
+	zw.Reset(w)
 	return &compressWriter{
 		w:  w,
-		zw: gzip.NewWriter(w),
+		zw: zw,
 	}
 }
 
@@ -34,8 +45,11 @@ func (c *compressWriter) Header() http.Header {
 
 func (c *compressWriter) Close() error {
 	if c.compress {
-		return c.zw.Close()
+		err := c.zw.Close()
+		gzipWriterPool.Put(c.zw)
+		return err
 	}
+	gzipWriterPool.Put(c.zw)
 	return nil
 }
 
@@ -57,14 +71,18 @@ type compressReader struct {
 }
 
 func newCompressReader(r io.ReadCloser) (*compressReader, error) {
+	if v := gzipReaderPool.Get(); v != nil {
+		zr := v.(*gzip.Reader)
+		if err := zr.Reset(r); err != nil {
+			return nil, err
+		}
+		return &compressReader{r: r, zr: zr}, nil
+	}
 	zr, err := gzip.NewReader(r)
 	if err != nil {
 		return nil, err
 	}
-	return &compressReader{
-		r:  r,
-		zr: zr,
-	}, nil
+	return &compressReader{r: r, zr: zr}, nil
 }
 
 func (c *compressReader) Read(p []byte) (n int, err error) {
@@ -75,7 +93,9 @@ func (c *compressReader) Close() error {
 	if err := c.r.Close(); err != nil {
 		return err
 	}
-	return c.zr.Close()
+	err := c.zr.Close()
+	gzipReaderPool.Put(c.zr)
+	return err
 }
 
 func WithCompression(h http.Handler) http.Handler {
