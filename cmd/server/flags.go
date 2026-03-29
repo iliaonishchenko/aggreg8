@@ -12,6 +12,8 @@ func parseFlags(cfg *server.Config, defaultServerAddress string, defaultStoreInt
 	var restore bool
 	var databaseDSN string
 	var key string
+	var auditFile string
+	var auditURL string
 
 	flag.StringVar(&serverAddress, "a", defaultServerAddress, "address and port to run server")
 	flag.IntVar(&storeInterval, "i", defaultStoreInterval, "interval to store aggregator data")
@@ -19,6 +21,8 @@ func parseFlags(cfg *server.Config, defaultServerAddress string, defaultStoreInt
 	flag.BoolVar(&restore, "r", defaultRestore, "restore aggregator data from file on startup")
 	flag.StringVar(&databaseDSN, "d", "", "database DSN")
 	flag.StringVar(&key, "k", "", "key for signature")
+	flag.StringVar(&auditFile, "audit-file", "", "file to store audit data")
+	flag.StringVar(&auditURL, "audit-url", "", "url to send audit data")
 
 	flag.Parse()
 
@@ -43,5 +47,11 @@ func parseFlags(cfg *server.Config, defaultServerAddress string, defaultStoreInt
 	}
 	if cfg.Key == "" {
 		cfg.Key = key
+	}
+	if cfg.AuditFile == "" {
+		cfg.AuditFile = auditFile
+	}
+	if cfg.AuditURL == "" {
+		cfg.AuditURL = auditURL
 	}
 }
