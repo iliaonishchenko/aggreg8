@@ -3,9 +3,14 @@ package main
 import (
 	"context"
 	"database/sql"
+	"log"
+	"net/http"
+	"time"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/iliaonishchenko/aggreg8"
+	"github.com/iliaonishchenko/aggreg8/internal/audit"
 	"github.com/iliaonishchenko/aggreg8/internal/config/server"
 	"github.com/iliaonishchenko/aggreg8/internal/handler"
 	"github.com/iliaonishchenko/aggreg8/internal/logger"
@@ -19,9 +24,6 @@ import (
 	"github.com/iliaonishchenko/aggreg8/internal/signature"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"
-	"log"
-	"net/http"
-	"time"
 )
 
 func initStorage(cfg *server.Config) (service.MetricStorage, *repository.MetricsRepository, context.CancelFunc) {
@@ -68,6 +70,18 @@ func initStorage(cfg *server.Config) (service.MetricStorage, *repository.Metrics
 	return storage, repo, cancelFunc
 }
 
+func initNotifier(cfg *server.Config) audit.Notifier {
+	notifier := audit.NewNotifier()
+
+	if cfg.AuditFile != "" {
+		notifier.Register(audit.NewFileObserver(cfg.AuditFile))
+	}
+	if cfg.AuditURL != "" {
+		notifier.Register(audit.NewHTTPObserver(cfg.AuditURL, http.Client{}))
+	}
+	return notifier
+}
+
 func main() {
 	defaultServerAddress := "localhost:8080"
 	defaultStoreInterval := 300
@@ -87,8 +101,9 @@ func main() {
 	}
 
 	storage, repo, cancelFunc := initStorage(cfg)
+	notifier := initNotifier(cfg)
 
-	if err := run(*cfg, storage, repo); err != nil {
+	if err := run(*cfg, storage, repo, notifier); err != nil {
 		if cancelFunc != nil {
 			cancelFunc()
 		}
@@ -96,11 +111,11 @@ func main() {
 	}
 }
 
-func run(cfg server.Config, storage service.MetricStorage, repo *repository.MetricsRepository) error {
+func run(cfg server.Config, storage service.MetricStorage, repo *repository.MetricsRepository, notifier audit.Notifier) error {
 
 	r := chi.NewRouter()
 
-	updateHandler := handler.NewUpdateHandler(storage)
+	updateHandler := handler.NewUpdateHandler(storage, notifier)
 	allHandler := handler.NewAllMetricsHandler(storage)
 	getMetricHandler := handler.NewGetMetricHandler(storage)
 	pingHandler := handler.NewPingHandler(repo)

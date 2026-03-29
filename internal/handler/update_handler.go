@@ -2,21 +2,26 @@ package handler
 
 import (
 	"encoding/json"
+	"net/http"
+	"strconv"
+	"time"
+
 	"github.com/go-chi/chi/v5"
+	"github.com/iliaonishchenko/aggreg8/internal/audit"
 	"github.com/iliaonishchenko/aggreg8/internal/logger"
 	models "github.com/iliaonishchenko/aggreg8/internal/model"
 	"github.com/iliaonishchenko/aggreg8/internal/service"
-	"net/http"
-	"strconv"
 )
 
 type UpdateHandler struct {
-	storage service.MetricStorage
+	storage  service.MetricStorage
+	notifier audit.Notifier
 }
 
-func NewUpdateHandler(memStorage service.MetricStorage) *UpdateHandler {
+func NewUpdateHandler(memStorage service.MetricStorage, notifier audit.Notifier) *UpdateHandler {
 	return &UpdateHandler{
-		storage: memStorage,
+		storage:  memStorage,
+		notifier: notifier,
 	}
 }
 
@@ -63,6 +68,18 @@ func (h UpdateHandler) HandleUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	auditEvent := audit.AuditEvent{
+		TS:        time.Now().Unix(),
+		Metrics:   []string{name},
+		IPAddress: r.RemoteAddr,
+	}
+	errs := h.notifier.NotifyAll(auditEvent)
+	if len(errs) > 0 {
+		for _, err := range errs {
+			logger.Log.Error("failed to audit metric", logger.Err(err))
+		}
+	}
+
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 }
@@ -87,6 +104,18 @@ func (h UpdateHandler) HandleUpdateJSON(w http.ResponseWriter, r *http.Request) 
 		logger.Log.Error("failed to update metric")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
+	}
+
+	auditEvent := audit.AuditEvent{
+		TS:        time.Now().Unix(),
+		Metrics:   []string{metrics.ID},
+		IPAddress: r.RemoteAddr,
+	}
+	errs := h.notifier.NotifyAll(auditEvent)
+	if len(errs) > 0 {
+		for _, err := range errs {
+			logger.Log.Error("failed to audit json metric", logger.Err(err))
+		}
 	}
 
 	w.WriteHeader(http.StatusOK)
@@ -114,6 +143,23 @@ func (h UpdateHandler) HandleBatchUpdateJSON(w http.ResponseWriter, r *http.Requ
 		logger.Log.Error("failed to update metrics batch", logger.Err(err))
 		w.WriteHeader(http.StatusInternalServerError)
 		return
+	}
+
+	metricNames := make([]string, 0, len(metrics))
+	for _, metric := range metrics {
+		metricNames = append(metricNames, metric.ID)
+	}
+
+	auditEvent := audit.AuditEvent{
+		TS:        time.Now().Unix(),
+		Metrics:   metricNames,
+		IPAddress: r.RemoteAddr,
+	}
+	errs := h.notifier.NotifyAll(auditEvent)
+	if len(errs) > 0 {
+		for _, err := range errs {
+			logger.Log.Error("failed to audit metrics batch", logger.Err(err))
+		}
 	}
 
 	w.WriteHeader(http.StatusOK)
