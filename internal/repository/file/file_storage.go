@@ -1,3 +1,4 @@
+// Package file реализует файловое хранилище метрик в формате JSON.
 package file
 
 import (
@@ -8,14 +9,17 @@ import (
 	"sync"
 )
 
+// FileStorage обеспечивает потокобезопасное сохранение и чтение метрик из JSON-файла.
 type FileStorage struct {
 	mu sync.Mutex
 }
 
+// NewFileStorage создаёт новый FileStorage.
 func NewFileStorage() *FileStorage {
 	return &FileStorage{}
 }
 
+// SaveToFile сериализует метрики в JSON и записывает в указанный файл.
 func (fs *FileStorage) SaveToFile(filename string, metrics []*models.Metrics) error {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
@@ -28,6 +32,7 @@ func (fs *FileStorage) SaveToFile(filename string, metrics []*models.Metrics) er
 	return os.WriteFile(filename, data, 0644)
 }
 
+// ReadFromFile читает метрики из JSON-файла. Если файл не существует, возвращает пустой срез.
 func (fs *FileStorage) ReadFromFile(filename string) ([]*models.Metrics, error) {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()

@@ -7,15 +7,18 @@ import (
 	"sync"
 )
 
+// FileObserver добавляет аудит-события в файл в формате JSON (по одному на строку).
 type FileObserver struct {
 	filePath string
 	mu       sync.Mutex
 }
 
+// NewFileObserver создаёт FileObserver, записывающий события в указанный файл.
 func NewFileObserver(filePath string) *FileObserver {
 	return &FileObserver{filePath: filePath}
 }
 
+// Notify записывает событие в файл аудита.
 func (f *FileObserver) Notify(event AuditEvent) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()

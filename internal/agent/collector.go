@@ -11,16 +11,19 @@ import (
 	"sync"
 )
 
+// Collector собирает runtime и системные метрики (CPU, память) и буферизирует их для отправки.
 type Collector struct {
 	pollCount int64
 	metrics   [][]*models.Metrics
 	mu        sync.Mutex
 }
 
+// NewCollector создаёт новый Collector.
 func NewCollector() *Collector {
 	return &Collector{}
 }
 
+// CollectRuntime собирает метрики Go runtime (память, GC и т.д.) и добавляет их в буфер.
 func (c *Collector) CollectRuntime() {
 	logger.Log.Info("Collecting runtime metrics")
 	var m runtime.MemStats
@@ -63,6 +66,7 @@ func (c *Collector) CollectRuntime() {
 	c.pollCount++
 }
 
+// CollectSystem собирает системные метрики (RAM, CPU utilization) через gopsutil.
 func (c *Collector) CollectSystem() {
 	logger.Log.Info("Collecting system metrics")
 	v, err := mem.VirtualMemory()
@@ -92,6 +96,7 @@ func (c *Collector) CollectSystem() {
 	c.metrics = append(c.metrics, newMetrics)
 }
 
+// GetMetrics возвращает все накопленные батчи метрик и очищает буфер.
 func (c *Collector) GetMetrics() [][]*models.Metrics {
 	c.mu.Lock()
 	defer c.mu.Unlock()

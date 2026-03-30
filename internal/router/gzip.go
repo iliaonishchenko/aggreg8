@@ -1,3 +1,4 @@
+// Package router содержит HTTP-middleware для сжатия и подписи запросов/ответов.
 package router
 
 import (
@@ -98,6 +99,7 @@ func (c *compressReader) Close() error {
 	return err
 }
 
+// WithCompression — middleware, обеспечивающий gzip-сжатие запросов и ответов.
 func WithCompression(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ow := w

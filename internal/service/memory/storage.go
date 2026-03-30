@@ -1,3 +1,4 @@
+// Package memory реализует потокобезопасное хранилище метрик в оперативной памяти.
 package memory
 
 import (
@@ -7,17 +8,20 @@ import (
 	"sync"
 )
 
+// MemStorage — потокобезопасное in-memory хранилище метрик.
 type MemStorage struct {
 	mu      sync.RWMutex
 	metrics map[string]*models.Metrics
 }
 
+// NewMemStorage создаёт новое пустое хранилище метрик в памяти.
 func NewMemStorage() *MemStorage {
 	return &MemStorage{
 		metrics: make(map[string]*models.Metrics),
 	}
 }
 
+// UpdateMetric обновляет или создаёт метрику. Для Counter значения суммируются, для Gauge — перезаписываются.
 func (ms *MemStorage) UpdateMetric(metric *models.Metrics) bool {
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
@@ -46,6 +50,7 @@ func (ms *MemStorage) UpdateMetric(metric *models.Metrics) bool {
 	}
 }
 
+// GetMetric возвращает метрику по имени или ErrMetricNotFound, если не найдена.
 func (ms *MemStorage) GetMetric(metricName string) (*models.Metrics, error) {
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
@@ -58,6 +63,7 @@ func (ms *MemStorage) GetMetric(metricName string) (*models.Metrics, error) {
 	return metric, nil
 }
 
+// GetAllMetrics возвращает срез всех сохранённых метрик.
 func (ms *MemStorage) GetAllMetrics() []*models.Metrics {
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
@@ -70,6 +76,7 @@ func (ms *MemStorage) GetAllMetrics() []*models.Metrics {
 	return results
 }
 
+// UpdateMetrics выполняет пакетное обновление метрик.
 func (ms *MemStorage) UpdateMetrics(metrics []*models.Metrics) error {
 	for _, metric := range metrics {
 		if ok := ms.UpdateMetric(metric); !ok {

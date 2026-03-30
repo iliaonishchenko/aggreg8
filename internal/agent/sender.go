@@ -13,10 +13,12 @@ import (
 	"time"
 )
 
+// DataSignature определяет интерфейс подписи данных.
 type DataSignature interface {
 	Sign(src []byte) string
 }
 
+// Sender отправляет метрики на сервер по HTTP.
 type Sender struct {
 	endpoint   string
 	client     http.Client
@@ -24,6 +26,7 @@ type Sender struct {
 	signature  DataSignature
 }
 
+// NewSender создаёт новый Sender для указанного эндпоинта сервера.
 func NewSender(endpoint string, classifier *AgentErrorClassifier, signature DataSignature) *Sender {
 	return &Sender{
 		endpoint:   endpoint,
@@ -55,6 +58,7 @@ func compressData(data []byte) (*bytes.Buffer, error) {
 	return buf, nil
 }
 
+// SendJSON отправляет метрики на сервер в формате JSON.
 func (s *Sender) SendJSON(metrics ...*models.Metrics) error {
 	req, err := s.buildRequest(metrics...)
 	if err != nil {
@@ -78,6 +82,7 @@ func (s *Sender) SendJSON(metrics ...*models.Metrics) error {
 	return nil
 }
 
+// Send отправляет одну метрику через URL-параметры (POST /update/{type}/{name}/{value}).
 func (s *Sender) Send(metric *models.Metrics) error {
 	resp, err := s.sendMetric(metric)
 	if err != nil {
@@ -115,6 +120,7 @@ func (s *Sender) buildMetricURL(baseURL string, metric *models.Metrics) string {
 	)
 }
 
+// SendJSONWithRetries отправляет метрики в формате JSON с автоматическими повторами при ошибках.
 func (s *Sender) SendJSONWithRetries(metrics ...*models.Metrics) error {
 	req, err := s.buildRequest(metrics...)
 	if err != nil {

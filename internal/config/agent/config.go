@@ -1,9 +1,11 @@
+// Package agent содержит конфигурацию агента сбора метрик.
 package agent
 
 import (
 	"github.com/caarlos0/env/v11"
 )
 
+// Config описывает параметры конфигурации агента, загружаемые из переменных окружения.
 type Config struct {
 	ServerAddress  string `env:"ADDRESS"`
 	ReportInterval int    `env:"REPORT_INTERVAL"`
@@ -13,6 +15,7 @@ type Config struct {
 	LogLevel       string `env:"LOG_LEVEL" envDefault:"info"`
 }
 
+// LoadConfig загружает конфигурацию агента из переменных окружения.
 func LoadConfig() (*Config, error) {
 	cfg := &Config{}
 	if err := env.Parse(cfg); err != nil {

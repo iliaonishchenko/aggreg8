@@ -12,16 +12,19 @@ import (
 	"strconv"
 )
 
+// GetMetricHandler обрабатывает HTTP-запросы на получение значений метрик.
 type GetMetricHandler struct {
 	storage service.MetricStorage
 }
 
+// NewGetMetricHandler создаёт новый GetMetricHandler с указанным хранилищем.
 func NewGetMetricHandler(s service.MetricStorage) *GetMetricHandler {
 	return &GetMetricHandler{
 		storage: s,
 	}
 }
 
+// HandleGetMetric возвращает значение метрики в текстовом формате: GET /value/{type}/{name}.
 func (gmh *GetMetricHandler) HandleGetMetric(w http.ResponseWriter, r *http.Request) {
 	mType := chi.URLParam(r, "type")
 	name := chi.URLParam(r, "name")
@@ -61,6 +64,7 @@ func (gmh *GetMetricHandler) HandleGetMetric(w http.ResponseWriter, r *http.Requ
 	io.WriteString(w, resultValue)
 }
 
+// HandleGetMetricJSON возвращает метрику в формате JSON: POST /value.
 func (gmh *GetMetricHandler) HandleGetMetricJSON(w http.ResponseWriter, r *http.Request) {
 	logger.Log.Debug("handle get metric json")
 

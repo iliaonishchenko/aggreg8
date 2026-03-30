@@ -2,8 +2,10 @@ package agent
 
 import "net/http"
 
+// AgentErrorClassifier классифицирует ошибки HTTP-запросов агента для определения необходимости ретрая.
 type AgentErrorClassifier struct{}
 
+// NewAgentErrorClassifier создаёт новый AgentErrorClassifier.
 func NewAgentErrorClassifier() *AgentErrorClassifier {
 	return &AgentErrorClassifier{}
 }
