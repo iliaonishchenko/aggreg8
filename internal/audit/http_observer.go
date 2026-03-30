@@ -7,11 +7,13 @@ import (
 	"net/http"
 )
 
+// HTTPObserver отправляет аудит-события по HTTP POST в формате JSON.
 type HTTPObserver struct {
 	url    string
 	client http.Client
 }
 
+// NewHTTPObserver создаёт HTTPObserver, отправляющий события на указанный URL.
 func NewHTTPObserver(url string, client http.Client) *HTTPObserver {
 	return &HTTPObserver{
 		url:    url,
@@ -19,6 +21,7 @@ func NewHTTPObserver(url string, client http.Client) *HTTPObserver {
 	}
 }
 
+// Notify отправляет событие на удалённый сервер аудита.
 func (o *HTTPObserver) Notify(event AuditEvent) error {
 	buf := new(bytes.Buffer)
 	enc := json.NewEncoder(buf)

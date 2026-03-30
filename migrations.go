@@ -11,6 +11,7 @@ import (
 //go:embed migrations/*.sql
 var embedMigrations embed.FS
 
+// RunMigrations выполняет SQL-миграции базы данных с помощью goose.
 func RunMigrations(db *sql.DB) error {
 	goose.SetBaseFS(embedMigrations)
 

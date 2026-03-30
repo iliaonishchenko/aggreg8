@@ -7,16 +7,19 @@ import (
 	"time"
 )
 
+// CollectorService определяет интерфейс сбора метрик (runtime и system).
 type CollectorService interface {
 	CollectRuntime()
 	CollectSystem()
 	GetMetrics() [][]*models.Metrics
 }
 
+// SenderService определяет интерфейс отправки метрик на сервер с ретраями.
 type SenderService interface {
 	SendJSONWithRetries(metrics ...*models.Metrics) error
 }
 
+// Agent координирует периодический сбор и отправку метрик с ограничением параллелизма через rateLimit.
 type Agent struct {
 	collector      CollectorService
 	sender         SenderService
@@ -25,6 +28,7 @@ type Agent struct {
 	rateLimit      int
 }
 
+// NewAgent создаёт нового агента с указанными интервалами сбора/отправки и лимитом воркеров.
 func NewAgent(collector CollectorService, sender SenderService, pollInterval, reportInterval, rateLimit int) *Agent {
 	return &Agent{
 		collector:      collector,
@@ -35,6 +39,7 @@ func NewAgent(collector CollectorService, sender SenderService, pollInterval, re
 	}
 }
 
+// Run запускает цикл сбора и отправки метрик. Блокирует выполнение до отмены контекста.
 func (a *Agent) Run(ctx context.Context) {
 	collectTicker := time.NewTicker(time.Duration(a.pollInterval) * time.Second)
 	defer collectTicker.Stop()

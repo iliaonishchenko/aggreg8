@@ -1,12 +1,16 @@
+// Package models описывает модели данных для хранения и передачи метрик.
 package models
 
 import "fmt"
 
 const (
+	// Counter — тип метрики-счётчика (полное значение).
 	Counter = "counter"
-	Gauge   = "gauge"
+	// Gauge — тип метрики-измерения (текущее значение).
+	Gauge = "gauge"
 )
 
+// Metrics описывает единицу метрики, которая может быть типа Counter или Gauge.
 // NOTE: Не усложняем пример, вводя иерархическую вложенность структур.
 // Органичиваясь плоской моделью.
 // Delta и Value объявлены через указатели,
@@ -20,6 +24,7 @@ type Metrics struct {
 	Hash  string   `json:"hash,omitempty"`
 }
 
+// String возвращает строковое представление метрики для отладки.
 func (m *Metrics) String() string {
 	return fmt.Sprintf("metrics{ID: %s, MType: %s, Delta: %v, Value: %v, Hash: %s}", m.ID, m.MType, m.Delta, m.Value, m.Hash)
 }

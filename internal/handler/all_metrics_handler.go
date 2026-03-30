@@ -8,16 +8,19 @@ import (
 	"strings"
 )
 
+// AllMetricsHandler обрабатывает HTTP-запрос на получение всех метрик в виде HTML-страницы.
 type AllMetricsHandler struct {
 	storage service.MetricStorage
 }
 
+// NewAllMetricsHandler создаёт новый AllMetricsHandler с указанным хранилищем.
 func NewAllMetricsHandler(s service.MetricStorage) *AllMetricsHandler {
 	return &AllMetricsHandler{
 		storage: s,
 	}
 }
 
+// HandleAll возвращает HTML-таблицу со всеми метриками: GET /.
 func (amh *AllMetricsHandler) HandleAll(w http.ResponseWriter, r *http.Request) {
 	metrics := amh.storage.GetAllMetrics()
 

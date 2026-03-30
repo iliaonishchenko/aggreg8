@@ -1,3 +1,4 @@
+// Package logger предоставляет инициализацию структурированного логера и HTTP-middleware для логирования запросов.
 package logger
 
 import (
@@ -6,8 +7,10 @@ import (
 	"time"
 )
 
+// Log — глобальный экземпляр логера. По умолчанию Nop, инициализируется через Initialize.
 var Log *zap.Logger = zap.NewNop()
 
+// Initialize инициализирует глобальный логер с указанным уровнем логирования (debug, info, warn, error).
 func Initialize(level string) error {
 	lvl, err := zap.ParseAtomicLevel(level)
 	if err != nil {
@@ -47,6 +50,7 @@ func (w *responseWriter) Write(b []byte) (int, error) {
 	return size, err
 }
 
+// WithLogger — middleware, логирующий входящие HTTP-запросы (метод, URI, статус, длительность, размер ответа).
 func WithLogger(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
@@ -77,10 +81,12 @@ func WithLogger(h http.Handler) http.Handler {
 	})
 }
 
+// Err создаёт zap-поле для логирования ошибки.
 func Err(err error) zap.Field {
 	return zap.Error(err)
 }
 
+// Field создаёт zap-поле с произвольным именем и значением.
 func Field(name string, field any) zap.Field {
 	return zap.Any(name, field)
 }

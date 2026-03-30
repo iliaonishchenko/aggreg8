@@ -6,11 +6,13 @@ import (
 	"net/http"
 )
 
+// Signature определяет интерфейс для подписи данных.
 type Signature interface {
 	Sign(data []byte) string
 	Key() string
 }
 
+// WithHash — middleware для проверки и установки HMAC-SHA256 подписи (заголовок HashSHA256).
 func WithHash(signature Signature) func(http.Handler) http.Handler {
 	return func(h http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

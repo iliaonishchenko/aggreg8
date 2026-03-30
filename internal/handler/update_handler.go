@@ -13,11 +13,13 @@ import (
 	"github.com/iliaonishchenko/aggreg8/internal/service"
 )
 
+// UpdateHandler обрабатывает HTTP-запросы на создание и обновление метрик.
 type UpdateHandler struct {
 	storage  service.MetricStorage
 	notifier audit.Notifier
 }
 
+// NewUpdateHandler создаёт новый UpdateHandler с указанным хранилищем и нотификатором аудита.
 func NewUpdateHandler(memStorage service.MetricStorage, notifier audit.Notifier) *UpdateHandler {
 	return &UpdateHandler{
 		storage:  memStorage,
@@ -25,6 +27,7 @@ func NewUpdateHandler(memStorage service.MetricStorage, notifier audit.Notifier)
 	}
 }
 
+// HandleUpdate обрабатывает обновление метрики через URL-параметры: POST /update/{type}/{name}/{value}.
 func (h UpdateHandler) HandleUpdate(w http.ResponseWriter, r *http.Request) {
 
 	metricType := chi.URLParam(r, "type")
@@ -84,6 +87,7 @@ func (h UpdateHandler) HandleUpdate(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// HandleUpdateJSON обрабатывает обновление одной метрики через JSON-тело запроса: POST /update.
 func (h UpdateHandler) HandleUpdateJSON(w http.ResponseWriter, r *http.Request) {
 	logger.Log.Debug("decoding request")
 
@@ -121,6 +125,7 @@ func (h UpdateHandler) HandleUpdateJSON(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(http.StatusOK)
 }
 
+// HandleBatchUpdateJSON обрабатывает пакетное обновление метрик через JSON-массив: POST /updates.
 func (h UpdateHandler) HandleBatchUpdateJSON(w http.ResponseWriter, r *http.Request) {
 	logger.Log.Debug("decoding batch request")
 

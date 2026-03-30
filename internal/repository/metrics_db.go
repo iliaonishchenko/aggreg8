@@ -1,3 +1,4 @@
+// Package repository реализует доступ к данным (PostgreSQL, файловое хранилище).
 package repository
 
 import (
@@ -7,23 +8,28 @@ import (
 	"time"
 )
 
+// MetricsRepository обеспечивает CRUD-операции с метриками в PostgreSQL с поддержкой ретраев.
 type MetricsRepository struct {
 	db         *sql.DB
 	classifier *PostgresErrorClassifier
 }
 
+// NewMetricsRepository создаёт новый репозиторий метрик с указанным подключением к БД.
 func NewMetricsRepository(db *sql.DB, classifier *PostgresErrorClassifier) *MetricsRepository {
 	return &MetricsRepository{db: db, classifier: classifier}
 }
 
+// DB возвращает подключение к базе данных.
 func (r *MetricsRepository) DB() *sql.DB {
 	return r.db
 }
 
+// Ping проверяет доступность базы данных.
 func (r *MetricsRepository) Ping() error {
 	return r.DB().Ping()
 }
 
+// Update вставляет или обновляет метрику в БД (upsert) с ретраями при транзиентных ошибках.
 func (r *MetricsRepository) Update(metric *models.Metrics) error {
 	return r.executeWithRetry(func() error {
 		var query string
@@ -61,6 +67,7 @@ func (r *MetricsRepository) Update(metric *models.Metrics) error {
 	})
 }
 
+// Get возвращает метрику по имени или nil, если не найдена.
 func (r *MetricsRepository) Get(metricName string) (*models.Metrics, error) {
 	query := "SELECT id, metric_type, delta, value FROM metrics WHERE id = $1"
 	row := r.db.QueryRow(query, metricName)
@@ -87,6 +94,7 @@ func (r *MetricsRepository) Get(metricName string) (*models.Metrics, error) {
 	return &metric, nil
 }
 
+// GetAll возвращает все метрики из базы данных.
 func (r *MetricsRepository) GetAll() ([]*models.Metrics, error) {
 	query := "SELECT id, metric_type, delta, value FROM metrics"
 	rows, err := r.db.Query(query)
@@ -120,6 +128,7 @@ func (r *MetricsRepository) GetAll() ([]*models.Metrics, error) {
 	return metrics, nil
 }
 
+// BatchUpdate выполняет пакетное обновление метрик в одной транзакции с ретраями.
 func (r *MetricsRepository) BatchUpdate(metrics []*models.Metrics) error {
 	return r.executeWithRetry(func() error {
 		tx, err := r.db.Begin()
