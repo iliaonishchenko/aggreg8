@@ -16,7 +16,9 @@ func TestFileObserver_Notify(t *testing.T) {
 	defer os.Remove(tmpFile.Name())
 	tmpFile.Close()
 
-	observer := NewFileObserver(tmpFile.Name())
+	observer, err := NewFileObserver(tmpFile.Name())
+	require.NoError(t, err)
+	defer observer.Close()
 
 	event1 := AuditEvent{
 		TS:        1000,
@@ -48,8 +50,6 @@ func TestFileObserver_Notify(t *testing.T) {
 }
 
 func TestFileObserver_Notify_InvalidPath(t *testing.T) {
-	observer := NewFileObserver("/nonexistent/dir/audit.log")
-
-	err := observer.Notify(AuditEvent{TS: 1000, Metrics: []string{"Alloc"}, IPAddress: "127.0.0.1"})
+	_, err := NewFileObserver("/nonexistent/dir/audit.log")
 	assert.Error(t, err)
 }

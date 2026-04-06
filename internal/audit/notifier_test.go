@@ -26,7 +26,7 @@ func TestNotifierService_NotifyAll(t *testing.T) {
 	obs1.EXPECT().Notify(event).Return(nil)
 	obs2.EXPECT().Notify(event).Return(nil)
 
-	notifier := audit.NewNotifier()
+	notifier := audit.NewNotifier(10)
 	notifier.Register(obs1)
 	notifier.Register(obs2)
 
@@ -48,7 +48,7 @@ func TestNotifierService_NotifyAll_CollectsErrors(t *testing.T) {
 	obs2.EXPECT().Notify(event).Return(nil)
 	obs3.EXPECT().Notify(event).Return(fmt.Errorf("fail 2"))
 
-	notifier := audit.NewNotifier()
+	notifier := audit.NewNotifier(10)
 	notifier.Register(obs1)
 	notifier.Register(obs2)
 	notifier.Register(obs3)
@@ -58,7 +58,7 @@ func TestNotifierService_NotifyAll_CollectsErrors(t *testing.T) {
 }
 
 func TestNotifierService_NotifyAll_NoObservers(t *testing.T) {
-	notifier := audit.NewNotifier()
+	notifier := audit.NewNotifier(10)
 
 	errs := notifier.NotifyAll(audit.AuditEvent{TS: 1, Metrics: []string{"M"}, IPAddress: "1.2.3.4"})
 	assert.Empty(t, errs)

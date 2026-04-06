@@ -98,7 +98,7 @@ func TestHandleUpdate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			storage := memory.NewMemStorage()
-			handler := NewUpdateHandler(storage, audit.NewNotifier())
+			handler := NewUpdateHandler(storage, audit.NewNotifier(10))
 
 			r := chi.NewRouter()
 			r.Post("/update/{type}/{name}/{value}", handler.HandleUpdate)
@@ -180,7 +180,7 @@ func TestHandleUpdateJSON(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			requestURL := "http://localhost:8080/update"
 			storage := memory.NewMemStorage()
-			handler := NewUpdateHandler(storage, audit.NewNotifier())
+			handler := NewUpdateHandler(storage, audit.NewNotifier(10))
 
 			r := chi.NewRouter()
 			r.Post("/update", handler.HandleUpdateJSON)
@@ -298,7 +298,7 @@ func TestHandleBatchUpdateJSON(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			requestURL := "http://localhost:8080/updates"
 			storage := memory.NewMemStorage()
-			handler := NewUpdateHandler(storage, audit.NewNotifier())
+			handler := NewUpdateHandler(storage, audit.NewNotifier(10))
 
 			r := chi.NewRouter()
 			r.Post("/updates", handler.HandleBatchUpdateJSON)

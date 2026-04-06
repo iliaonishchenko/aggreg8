@@ -12,8 +12,7 @@ func BenchmarkUpdateMetric_Gauge(b *testing.B) {
 	value := 42.5
 	metric := &models.Metrics{ID: "temperature", MType: models.Gauge, Value: &value}
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		storage.UpdateMetric(metric)
 	}
 }
@@ -23,8 +22,7 @@ func BenchmarkUpdateMetric_Counter(b *testing.B) {
 	delta := int64(1)
 	metric := &models.Metrics{ID: "requests", MType: models.Counter, Delta: &delta}
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		storage.UpdateMetric(metric)
 	}
 }
@@ -43,8 +41,7 @@ func BenchmarkUpdateMetrics_Batch(b *testing.B) {
 				}
 			}
 
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for b.Loop() {
 				storage.UpdateMetrics(metrics)
 			}
 		})
@@ -64,8 +61,7 @@ func BenchmarkGetAllMetrics(b *testing.B) {
 				})
 			}
 
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for b.Loop() {
 				storage.GetAllMetrics()
 			}
 		})
