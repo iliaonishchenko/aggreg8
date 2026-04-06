@@ -16,7 +16,7 @@ import (
 
 func ExampleUpdateHandler_HandleUpdate() {
 	storage := memory.NewMemStorage()
-	notifier := audit.NewNotifier()
+	notifier := audit.NewNotifier(10)
 	h := NewUpdateHandler(storage, notifier)
 
 	r := chi.NewRouter()
@@ -35,7 +35,7 @@ func ExampleUpdateHandler_HandleUpdate() {
 
 func ExampleUpdateHandler_HandleUpdateJSON() {
 	storage := memory.NewMemStorage()
-	notifier := audit.NewNotifier()
+	notifier := audit.NewNotifier(10)
 	h := NewUpdateHandler(storage, notifier)
 
 	r := chi.NewRouter()
@@ -62,7 +62,7 @@ func ExampleUpdateHandler_HandleUpdateJSON() {
 
 func ExampleUpdateHandler_HandleBatchUpdateJSON() {
 	storage := memory.NewMemStorage()
-	notifier := audit.NewNotifier()
+	notifier := audit.NewNotifier(10)
 	h := NewUpdateHandler(storage, notifier)
 
 	r := chi.NewRouter()

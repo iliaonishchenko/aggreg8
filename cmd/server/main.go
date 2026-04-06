@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/hashicorp/go-retryablehttp"
 	"github.com/iliaonishchenko/aggreg8"
 	"github.com/iliaonishchenko/aggreg8/internal/audit"
 	"github.com/iliaonishchenko/aggreg8/internal/config/server"
@@ -70,16 +71,23 @@ func initStorage(cfg *server.Config) (service.MetricStorage, *repository.Metrics
 	return storage, repo, cancelFunc
 }
 
-func initNotifier(cfg *server.Config) audit.Notifier {
-	notifier := audit.NewNotifier()
+func initNotifier(cfg *server.Config) (audit.Notifier, []func() error) {
+	notifier := audit.NewNotifier(10)
+	var closers []func() error
 
 	if cfg.AuditFile != "" {
-		notifier.Register(audit.NewFileObserver(cfg.AuditFile))
+		fileObserver, err := audit.NewFileObserver(cfg.AuditFile)
+		if err != nil {
+			log.Fatalf("error creating file observer: %v", err)
+		}
+		notifier.Register(fileObserver)
+		closers = append(closers, fileObserver.Close)
 	}
 	if cfg.AuditURL != "" {
-		notifier.Register(audit.NewHTTPObserver(cfg.AuditURL, http.Client{}))
+		retryClient := retryablehttp.NewClient()
+		notifier.Register(audit.NewHTTPObserver(cfg.AuditURL, retryClient.StandardClient()))
 	}
-	return notifier
+	return notifier, closers
 }
 
 func main() {
@@ -101,7 +109,12 @@ func main() {
 	}
 
 	storage, repo, cancelFunc := initStorage(cfg)
-	notifier := initNotifier(cfg)
+	notifier, closers := initNotifier(cfg)
+	defer func() {
+		for _, closer := range closers {
+			closer()
+		}
+	}()
 
 	if err := run(*cfg, storage, repo, notifier); err != nil {
 		if cancelFunc != nil {

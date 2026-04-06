@@ -23,7 +23,7 @@ func TestHTTPObserver_Notify(t *testing.T) {
 	}))
 	defer server.Close()
 
-	observer := NewHTTPObserver(server.URL, http.Client{})
+	observer := NewHTTPObserver(server.URL, &http.Client{})
 
 	event := AuditEvent{
 		TS:        12345678,
@@ -39,7 +39,7 @@ func TestHTTPObserver_Notify(t *testing.T) {
 }
 
 func TestHTTPObserver_Notify_ServerUnavailable(t *testing.T) {
-	observer := NewHTTPObserver("http://127.0.0.1:1", http.Client{})
+	observer := NewHTTPObserver("http://127.0.0.1:1", &http.Client{})
 
 	err := observer.Notify(AuditEvent{TS: 1000, Metrics: []string{"Alloc"}, IPAddress: "127.0.0.1"})
 	assert.Error(t, err)

@@ -6,8 +6,3 @@ type AuditEvent struct {
 	Metrics   []string `json:"metrics"`
 	IPAddress string   `json:"ip_address"`
 }
-
-// Observer определяет интерфейс наблюдателя, получающего уведомления об аудит-событиях.
-type Observer interface {
-	Notify(event AuditEvent) error
-}

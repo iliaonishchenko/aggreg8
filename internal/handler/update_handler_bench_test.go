@@ -18,7 +18,7 @@ import (
 func BenchmarkHandleUpdateJSON(b *testing.B) {
 	logger.Initialize("error")
 	storage := memory.NewMemStorage()
-	h := NewUpdateHandler(storage, audit.NewNotifier())
+	h := NewUpdateHandler(storage, audit.NewNotifier(10))
 
 	r := chi.NewRouter()
 	r.Post("/update", h.HandleUpdateJSON)
@@ -26,8 +26,7 @@ func BenchmarkHandleUpdateJSON(b *testing.B) {
 	metric := models.Metrics{ID: "temperature", MType: models.Gauge, Value: ptrFloat64(23.5)}
 	body, _ := json.Marshal(metric)
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		req := httptest.NewRequest(http.MethodPost, "/update", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
@@ -41,7 +40,7 @@ func BenchmarkHandleBatchUpdateJSON(b *testing.B) {
 	for _, size := range []int{1, 10, 100} {
 		b.Run(fmt.Sprintf("size_%d", size), func(b *testing.B) {
 			storage := memory.NewMemStorage()
-			h := NewUpdateHandler(storage, audit.NewNotifier())
+			h := NewUpdateHandler(storage, audit.NewNotifier(10))
 
 			r := chi.NewRouter()
 			r.Post("/updates", h.HandleBatchUpdateJSON)
@@ -57,8 +56,7 @@ func BenchmarkHandleBatchUpdateJSON(b *testing.B) {
 			}
 			body, _ := json.Marshal(metrics)
 
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for b.Loop() {
 				req := httptest.NewRequest(http.MethodPost, "/updates", bytes.NewReader(body))
 				req.Header.Set("Content-Type", "application/json")
 				w := httptest.NewRecorder()
