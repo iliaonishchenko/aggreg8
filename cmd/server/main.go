@@ -1,8 +1,10 @@
 package main
 
 import (
+	"cmp"
 	"context"
 	"database/sql"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -25,6 +27,12 @@ import (
 	"github.com/iliaonishchenko/aggreg8/internal/signature"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"
+)
+
+var (
+	buildVersion string
+	buildDate    string
+	buildCommit  string
 )
 
 func initStorage(cfg *server.Config) (service.MetricStorage, *repository.MetricsRepository, context.CancelFunc) {
@@ -91,6 +99,10 @@ func initNotifier(cfg *server.Config) (audit.Notifier, []func() error) {
 }
 
 func main() {
+	fmt.Println("Build version: " + cmp.Or(buildVersion, "N/A"))
+	fmt.Println("Build date: " + cmp.Or(buildDate, "N/A"))
+	fmt.Println("Build commit: " + cmp.Or(buildCommit, "N/A"))
+
 	defaultServerAddress := "localhost:8080"
 	defaultStoreInterval := 300
 	defaultFileStoragePath := "./snapshot.json"

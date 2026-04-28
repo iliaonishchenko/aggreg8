@@ -1,13 +1,24 @@
 package main
 
 import (
+	"cmp"
 	"context"
+	"fmt"
 	"github.com/iliaonishchenko/aggreg8/internal/agent"
 	agentconfig "github.com/iliaonishchenko/aggreg8/internal/config/agent"
 	"log"
 )
 
+var (
+	buildVersion string
+	buildDate    string
+	buildCommit  string
+)
+
 func main() {
+	fmt.Println("Build version: " + cmp.Or(buildVersion, "N/A"))
+	fmt.Println("Build date: " + cmp.Or(buildDate, "N/A"))
+	fmt.Println("Build commit: " + cmp.Or(buildCommit, "N/A"))
 
 	defaultServerAddress := "localhost:8080"
 	defaultReportInterval := 10
