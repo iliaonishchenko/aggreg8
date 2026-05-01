@@ -117,21 +117,6 @@ func discover(pkgs []*packages.Package) []targetStruct {
 	return out
 }
 
-func isGenerated(f *ast.File) bool {
-	for _, cg := range f.Comments {
-		// заголовок DO NOT EDIT должен находиться до package-объявления
-		if cg.Pos() >= f.Package {
-			break
-		}
-		for _, c := range cg.List {
-			if generatedRe.MatchString(c.Text) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
 func hasMarker(doc *ast.CommentGroup) bool {
 	if doc == nil {
 		return false
