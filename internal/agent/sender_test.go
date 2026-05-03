@@ -1,7 +1,11 @@
 package agent
 
 import (
+	"bytes"
 	"compress/gzip"
+	"crypto/rand"
+	"crypto/rsa"
+	"encoding/base64"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -9,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	cryptopkg "github.com/iliaonishchenko/aggreg8/internal/crypto"
 	models "github.com/iliaonishchenko/aggreg8/internal/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -48,7 +53,7 @@ func TestBuildMetricURL(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			classifier := NewAgentErrorClassifier()
-			sender := NewSender(baseURL, classifier, nil)
+			sender := NewSender(baseURL, classifier, nil, nil)
 			actualURL := sender.buildMetricURL(baseURL, tt.metricModel)
 			assert.Equal(t, tt.expectedURL, actualURL)
 		})
@@ -65,7 +70,7 @@ func TestSendJSONWithRetries_Success(t *testing.T) {
 		defer server.Close()
 
 		classifier := NewAgentErrorClassifier()
-		sender := NewSender(server.Listener.Addr().String(), classifier, nil)
+		sender := NewSender(server.Listener.Addr().String(), classifier, nil, nil)
 
 		metric := &models.Metrics{
 			ID:    "test",
@@ -92,7 +97,7 @@ func TestSendJSONWithRetries_Success(t *testing.T) {
 		defer server.Close()
 
 		classifier := NewAgentErrorClassifier()
-		sender := NewSender(server.Listener.Addr().String(), classifier, nil)
+		sender := NewSender(server.Listener.Addr().String(), classifier, nil, nil)
 
 		metric := &models.Metrics{
 			ID:    "test",
@@ -119,7 +124,7 @@ func TestSendJSONWithRetries_Success(t *testing.T) {
 		defer server.Close()
 
 		classifier := NewAgentErrorClassifier()
-		sender := NewSender(server.Listener.Addr().String(), classifier, nil)
+		sender := NewSender(server.Listener.Addr().String(), classifier, nil, nil)
 
 		metric := &models.Metrics{
 			ID:    "test",
@@ -144,7 +149,7 @@ func TestSendJSONWithRetries_Failure(t *testing.T) {
 		defer server.Close()
 
 		classifier := NewAgentErrorClassifier()
-		sender := NewSender(server.Listener.Addr().String(), classifier, nil)
+		sender := NewSender(server.Listener.Addr().String(), classifier, nil, nil)
 
 		metric := &models.Metrics{
 			ID:    "test",
@@ -168,7 +173,7 @@ func TestSendJSONWithRetries_Failure(t *testing.T) {
 		defer server.Close()
 
 		classifier := NewAgentErrorClassifier()
-		sender := NewSender(server.Listener.Addr().String(), classifier, nil)
+		sender := NewSender(server.Listener.Addr().String(), classifier, nil, nil)
 
 		metric := &models.Metrics{
 			ID:    "test",
@@ -192,7 +197,7 @@ func TestSendJSONWithRetries_Failure(t *testing.T) {
 		defer server.Close()
 
 		classifier := NewAgentErrorClassifier()
-		sender := NewSender(server.Listener.Addr().String(), classifier, nil)
+		sender := NewSender(server.Listener.Addr().String(), classifier, nil, nil)
 
 		metric := &models.Metrics{
 			ID:    "test",
@@ -211,7 +216,7 @@ func TestSendJSONWithRetries_Failure(t *testing.T) {
 func TestSendJSONWithRetries_ConnectionErrors(t *testing.T) {
 	t.Run("fails after max retries with connection errors", func(t *testing.T) {
 		classifier := NewAgentErrorClassifier()
-		sender := NewSender("localhost:9999", classifier, nil)
+		sender := NewSender("localhost:9999", classifier, nil, nil)
 
 		metric := &models.Metrics{
 			ID:    "test",
@@ -239,7 +244,7 @@ func TestSendJSONWithRetries_RetryDelays(t *testing.T) {
 		defer server.Close()
 
 		classifier := NewAgentErrorClassifier()
-		sender := NewSender(server.Listener.Addr().String(), classifier, nil)
+		sender := NewSender(server.Listener.Addr().String(), classifier, nil, nil)
 
 		metric := &models.Metrics{
 			ID:    "test",
@@ -297,4 +302,45 @@ func TestEncodeJSON(t *testing.T) {
 
 	expectedJSON := `{"id":"cpu_usage","type":"gauge","value":75.5}`
 	assert.JSONEq(t, expectedJSON, jsonData.String())
+}
+
+func TestSendJSON_Encrypts(t *testing.T) {
+	priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+
+	var receivedBody []byte
+	var receivedKeyHeader string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedKeyHeader = r.Header.Get("X-Crypto-Key")
+		body, _ := io.ReadAll(r.Body)
+		receivedBody = body
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	encrypter, err := cryptopkg.NewEncrypterFromKey(&priv.PublicKey)
+	require.NoError(t, err)
+
+	classifier := NewAgentErrorClassifier()
+	sender := NewSender(server.Listener.Addr().String(), classifier, nil, encrypter)
+
+	metric := &models.Metrics{ID: "x", MType: models.Gauge, Value: float64Ptr(1.0)}
+	require.NoError(t, sender.SendJSONWithRetries(metric))
+
+	assert.NotEmpty(t, receivedKeyHeader)
+
+	encKey, err := base64.StdEncoding.DecodeString(receivedKeyHeader)
+	require.NoError(t, err)
+
+	dec, err := cryptopkg.NewDecrypterFromKey(priv)
+	require.NoError(t, err)
+	decrypted, err := dec.Decrypt(receivedBody, encKey)
+	require.NoError(t, err)
+
+	gz, err := gzip.NewReader(bytes.NewReader(decrypted))
+	require.NoError(t, err)
+	defer gz.Close()
+	jsonBytes, err := io.ReadAll(gz)
+	require.NoError(t, err)
+	assert.Contains(t, string(jsonBytes), `"id":"x"`)
 }
