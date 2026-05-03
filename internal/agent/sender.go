@@ -3,6 +3,7 @@ package agent
 import (
 	"bytes"
 	"compress/gzip"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"github.com/iliaonishchenko/aggreg8/internal/logger"
@@ -18,21 +19,27 @@ type DataSignature interface {
 	Sign(src []byte) string
 }
 
+type DataEncrypter interface {
+	Encrypt(plaintext []byte) (body []byte, encKey []byte, err error)
+}
+
 // Sender отправляет метрики на сервер по HTTP.
 type Sender struct {
 	endpoint   string
 	client     http.Client
 	classifier *AgentErrorClassifier
 	signature  DataSignature
+	encrypter  DataEncrypter
 }
 
 // NewSender создаёт новый Sender для указанного эндпоинта сервера.
-func NewSender(endpoint string, classifier *AgentErrorClassifier, signature DataSignature) *Sender {
+func NewSender(endpoint string, classifier *AgentErrorClassifier, signature DataSignature, encrypter DataEncrypter) *Sender {
 	return &Sender{
 		endpoint:   endpoint,
 		client:     http.Client{},
 		classifier: classifier,
 		signature:  signature,
+		encrypter:  encrypter,
 	}
 }
 
@@ -155,7 +162,19 @@ func (s *Sender) buildRequest(metrics ...*models.Metrics) (*http.Request, error)
 		return nil, err
 	}
 
-	req, err := http.NewRequest("POST", uri, compressedBuf)
+	bodyBytes := compressedBuf.Bytes()
+	var encKey []byte
+	if s.encrypter != nil {
+		encBody, key, encErr := s.encrypter.Encrypt(bodyBytes)
+		if encErr != nil {
+			logger.Log.Error("error encrypting payload", logger.Err(encErr))
+			return nil, encErr
+		}
+		bodyBytes = encBody
+		encKey = key
+	}
+
+	req, err := http.NewRequest("POST", uri, bytes.NewReader(bodyBytes))
 	if err != nil {
 		logger.Log.Error("error creating request to agent", logger.Err(err))
 		return nil, err
@@ -169,6 +188,9 @@ func (s *Sender) buildRequest(metrics ...*models.Metrics) (*http.Request, error)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Content-Encoding", "gzip")
 	req.Header.Set("Accept-Encoding", "gzip")
+	if encKey != nil {
+		req.Header.Set("X-Crypto-Key", base64.StdEncoding.EncodeToString(encKey))
+	}
 
 	return req, nil
 }

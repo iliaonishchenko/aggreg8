@@ -15,6 +15,7 @@ import (
 	"github.com/iliaonishchenko/aggreg8"
 	"github.com/iliaonishchenko/aggreg8/internal/audit"
 	"github.com/iliaonishchenko/aggreg8/internal/config/server"
+	cryptopkg "github.com/iliaonishchenko/aggreg8/internal/crypto"
 	"github.com/iliaonishchenko/aggreg8/internal/handler"
 	"github.com/iliaonishchenko/aggreg8/internal/logger"
 	"github.com/iliaonishchenko/aggreg8/internal/repository"
@@ -116,6 +117,15 @@ func main() {
 
 	parseFlags(cfg, defaultServerAddress, defaultStoreInterval, defaultFileStoragePath, defaultRestore, defaultKey)
 
+	var decrypter router.Decrypter
+	if cfg.CryptoKey != "" {
+		dec, err := cryptopkg.LoadPrivateKey(cfg.CryptoKey)
+		if err != nil {
+			log.Fatalf("error loading private key: %v", err)
+		}
+		decrypter = dec
+	}
+
 	if err := logger.Initialize(cfg.LogLevel); err != nil {
 		log.Fatalf("error initializing logger: %v", err)
 	}
@@ -128,7 +138,7 @@ func main() {
 		}
 	}()
 
-	if err := run(*cfg, storage, repo, notifier); err != nil {
+	if err := run(*cfg, storage, repo, notifier, decrypter); err != nil {
 		if cancelFunc != nil {
 			cancelFunc()
 		}
@@ -136,7 +146,7 @@ func main() {
 	}
 }
 
-func run(cfg server.Config, storage service.MetricStorage, repo *repository.MetricsRepository, notifier audit.Notifier) error {
+func run(cfg server.Config, storage service.MetricStorage, repo *repository.MetricsRepository, notifier audit.Notifier, decrypter router.Decrypter) error {
 
 	r := chi.NewRouter()
 
@@ -147,6 +157,9 @@ func run(cfg server.Config, storage service.MetricStorage, repo *repository.Metr
 	sign := signature.NewSignature(cfg.Key)
 
 	r.Use(logger.WithLogger)
+	if decrypter != nil {
+		r.Use(router.WithDecryption(decrypter))
+	}
 	r.Use(router.WithCompression)
 	r.Use(router.WithHash(sign))
 

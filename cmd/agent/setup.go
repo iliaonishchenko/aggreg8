@@ -1,6 +1,7 @@
 package main
 
 import (
+	cryptopkg "github.com/iliaonishchenko/aggreg8/internal/crypto"
 	"github.com/iliaonishchenko/aggreg8/internal/agent"
 	agentconfig "github.com/iliaonishchenko/aggreg8/internal/config/agent"
 	"github.com/iliaonishchenko/aggreg8/internal/logger"
@@ -9,18 +10,23 @@ import (
 )
 
 func initSender(config *agentconfig.Config) *agent.Sender {
-	var sender *agent.Sender
-	var sign *signature.Signature
+	var sign agent.DataSignature
+	var encrypter agent.DataEncrypter
 	errorClassifier := agent.NewAgentErrorClassifier()
 
 	if config.Key != "" {
 		sign = signature.NewSignature(config.Key)
-		sender = agent.NewSender(config.ServerAddress, errorClassifier, sign)
-	} else {
-		sender = agent.NewSender(config.ServerAddress, errorClassifier, nil)
 	}
 
-	return sender
+	if config.CryptoKey != "" {
+		enc, err := cryptopkg.LoadPublicKey(config.CryptoKey)
+		if err != nil {
+			log.Fatalf("error loading public key: %v", err)
+		}
+		encrypter = enc
+	}
+
+	return agent.NewSender(config.ServerAddress, errorClassifier, sign, encrypter)
 }
 
 func initLogger(config *agentconfig.Config) {

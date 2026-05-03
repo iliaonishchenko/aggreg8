@@ -14,6 +14,7 @@ func parseFlags(cfg *server.Config, defaultServerAddress string, defaultStoreInt
 	var key string
 	var auditFile string
 	var auditURL string
+	var cryptoKey string
 
 	flag.StringVar(&serverAddress, "a", defaultServerAddress, "address and port to run server")
 	flag.IntVar(&storeInterval, "i", defaultStoreInterval, "interval to store aggregator data")
@@ -23,6 +24,7 @@ func parseFlags(cfg *server.Config, defaultServerAddress string, defaultStoreInt
 	flag.StringVar(&key, "k", "", "key for signature")
 	flag.StringVar(&auditFile, "audit-file", "", "file to store audit data")
 	flag.StringVar(&auditURL, "audit-url", "", "url to send audit data")
+	flag.StringVar(&cryptoKey, "crypto-key", "", "path to RSA private key PEM file")
 
 	flag.Parse()
 
@@ -53,5 +55,8 @@ func parseFlags(cfg *server.Config, defaultServerAddress string, defaultStoreInt
 	}
 	if cfg.AuditURL == "" {
 		cfg.AuditURL = auditURL
+	}
+	if cfg.CryptoKey == "" {
+		cfg.CryptoKey = cryptoKey
 	}
 }
