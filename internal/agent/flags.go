@@ -36,7 +36,7 @@ func ParseFlags(cfg *agentconfig.Config, defaultServerAddress, defaultKey string
 	var fileCfg *external.ExternalAgentConfiguration
 	if cfg.ConfigFile != "" {
 		var err error
-		fileCfg, err = external.AgentConfigurationFromFile(cfg.ConfigFile)
+		fileCfg, err = external.ConfigurationFromFile[external.ExternalAgentConfiguration](cfg.ConfigFile)
 		if err != nil {
 			log.Fatalf("error reading config file: %v", err)
 		}
@@ -61,6 +61,9 @@ func ParseFlags(cfg *agentconfig.Config, defaultServerAddress, defaultKey string
 
 	if cfg.Key == "" {
 		cfg.Key = key
+	}
+	if cfg.Key == "" && fileCfg != nil {
+		cfg.Key = fileCfg.Key
 	}
 	if cfg.Key == "" {
 		cfg.Key = defaultKey
@@ -96,6 +99,9 @@ func ParseFlags(cfg *agentconfig.Config, defaultServerAddress, defaultKey string
 
 	if cfg.RateLimit == 0 && rateLimit != 0 {
 		cfg.RateLimit = rateLimit
+	}
+	if cfg.RateLimit == 0 && fileCfg != nil && fileCfg.RateLimit != 0 {
+		cfg.RateLimit = fileCfg.RateLimit
 	}
 	if cfg.RateLimit == 0 {
 		cfg.RateLimit = defaultRateLimit

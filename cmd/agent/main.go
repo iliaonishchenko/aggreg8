@@ -7,6 +7,8 @@ import (
 	"github.com/iliaonishchenko/aggreg8/internal/agent"
 	agentconfig "github.com/iliaonishchenko/aggreg8/internal/config/agent"
 	"log"
+	"os/signal"
+	"syscall"
 )
 
 var (
@@ -35,10 +37,11 @@ func main() {
 
 	initLogger(config)
 
-	context := context.Background()
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	defer stop()
 
 	collector := agent.NewCollector()
 	sender := initSender(config)
 	app := agent.NewAgent(collector, sender, config.PollInterval, config.ReportInterval, config.RateLimit)
-	app.Run(context)
+	app.Run(ctx)
 }

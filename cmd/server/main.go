@@ -4,9 +4,12 @@ import (
 	"cmp"
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -36,9 +39,8 @@ var (
 	buildCommit  string
 )
 
-func initStorage(cfg *server.Config) (service.MetricStorage, *repository.MetricsRepository, context.CancelFunc) {
+func initStorage(ctx context.Context, cfg *server.Config) (service.MetricStorage, *repository.MetricsRepository) {
 	var storage service.MetricStorage
-	var cancelFunc context.CancelFunc
 	var repo *repository.MetricsRepository
 
 	if cfg.DatabaseDSN != "" {
@@ -71,13 +73,11 @@ func initStorage(cfg *server.Config) (service.MetricStorage, *repository.Metrics
 			storage = memStorage
 			interval := time.Duration(*cfg.StoreInterval) * time.Second
 			persister := service.NewPersister(memStorage, fileStorage, *cfg.FileStoragePath, interval)
-			ctx, cancel := context.WithCancel(context.Background())
-			cancelFunc = cancel
 			go persister.Start(ctx)
 		}
 	}
 
-	return storage, repo, cancelFunc
+	return storage, repo
 }
 
 func initNotifier(cfg *server.Config) (audit.Notifier, []func() error) {
@@ -130,7 +130,10 @@ func main() {
 		log.Fatalf("error initializing logger: %v", err)
 	}
 
-	storage, repo, cancelFunc := initStorage(cfg)
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	defer stop()
+
+	storage, repo := initStorage(ctx, cfg)
 	notifier, closers := initNotifier(cfg)
 	defer func() {
 		for _, closer := range closers {
@@ -138,15 +141,12 @@ func main() {
 		}
 	}()
 
-	if err := run(*cfg, storage, repo, notifier, decrypter); err != nil {
-		if cancelFunc != nil {
-			cancelFunc()
-		}
+	if err := run(ctx, *cfg, storage, repo, notifier, decrypter); err != nil {
 		logger.Log.Fatal("error starting server", zap.Error(err))
 	}
 }
 
-func run(cfg server.Config, storage service.MetricStorage, repo *repository.MetricsRepository, notifier audit.Notifier, decrypter router.Decrypter) error {
+func run(ctx context.Context, cfg server.Config, storage service.MetricStorage, repo *repository.MetricsRepository, notifier audit.Notifier, decrypter router.Decrypter) error {
 
 	r := chi.NewRouter()
 
@@ -189,5 +189,26 @@ func run(cfg server.Config, storage service.MetricStorage, repo *repository.Metr
 		})
 	})
 
-	return http.ListenAndServe(cfg.ServerAddress, r)
+	srv := &http.Server{
+		Addr:    cfg.ServerAddress,
+		Handler: r,
+	}
+
+	errCh := make(chan error, 1)
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			errCh <- err
+		}
+		close(errCh)
+	}()
+
+	select {
+	case <-ctx.Done():
+		logger.Log.Info("Shutting down server...")
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		return srv.Shutdown(shutdownCtx)
+	case err := <-errCh:
+		return err
+	}
 }
