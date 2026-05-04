@@ -42,7 +42,7 @@ func parseFlags(cfg *server.Config, defaultServerAddress string, defaultStoreInt
 	var fileCfg *external.ExternalServerConfiguration
 	if cfg.ConfigFile != "" {
 		var err error
-		fileCfg, err = external.ServerConfigurationFromFile(cfg.ConfigFile)
+		fileCfg, err = external.ConfigurationFromFile[external.ExternalServerConfiguration](cfg.ConfigFile)
 		if err != nil {
 			log.Fatalf("error reading config file: %v", err)
 		}

@@ -14,38 +14,23 @@ type ExternalServerConfiguration struct {
 	CryptoKey     string `json:"crypto_key"`
 }
 
-func ServerConfigurationFromFile(file string) (*ExternalServerConfiguration, error) {
-	var f *os.File
-	f, err := os.Open(file)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	var cfg ExternalServerConfiguration
-	if err := json.NewDecoder(f).Decode(&cfg); err != nil {
-		return nil, err
-	}
-
-	return &cfg, nil
-}
-
 type ExternalAgentConfiguration struct {
 	Address        string `json:"address"`
 	ReportInterval string `json:"report_interval"`
 	PollInterval   string `json:"poll_interval"`
 	CryptoKey      string `json:"crypto_key"`
+	Key            string `json:"key"`
+	RateLimit      int    `json:"rate_limit"`
 }
 
-func AgentConfigurationFromFile(file string) (*ExternalAgentConfiguration, error) {
-	var f *os.File
+func ConfigurationFromFile[T any](file string) (*T, error) {
 	f, err := os.Open(file)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
 
-	var cfg ExternalAgentConfiguration
+	var cfg T
 	if err := json.NewDecoder(f).Decode(&cfg); err != nil {
 		return nil, err
 	}
