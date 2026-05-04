@@ -14,6 +14,7 @@ type Config struct {
 	RateLimit      int    `env:"RATE_LIMIT"`
 	CryptoKey      string `env:"CRYPTO_KEY"`
 	LogLevel       string `env:"LOG_LEVEL" envDefault:"info"`
+	ConfigFile     string `env:"CONFIG"`
 }
 
 // LoadConfig загружает конфигурацию агента из переменных окружения.
