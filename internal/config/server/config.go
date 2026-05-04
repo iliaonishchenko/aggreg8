@@ -15,6 +15,7 @@ type Config struct {
 	AuditFile       string  `env:"AUDIT_FILE"`
 	AuditURL        string  `env:"AUDIT_URL"`
 	CryptoKey       string  `env:"CRYPTO_KEY"`
+	ConfigFile      string  `env:"CONFIG"`
 }
 
 // LoadConfig загружает конфигурацию сервера из переменных окружения.
