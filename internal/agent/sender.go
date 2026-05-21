@@ -30,16 +30,18 @@ type Sender struct {
 	classifier *AgentErrorClassifier
 	signature  DataSignature
 	encrypter  DataEncrypter
+	localIP    string
 }
 
 // NewSender создаёт новый Sender для указанного эндпоинта сервера.
-func NewSender(endpoint string, classifier *AgentErrorClassifier, signature DataSignature, encrypter DataEncrypter) *Sender {
+func NewSender(endpoint string, classifier *AgentErrorClassifier, signature DataSignature, encrypter DataEncrypter, localIP string) *Sender {
 	return &Sender{
 		endpoint:   endpoint,
 		client:     http.Client{},
 		classifier: classifier,
 		signature:  signature,
 		encrypter:  encrypter,
+		localIP:    localIP,
 	}
 }
 
@@ -190,6 +192,9 @@ func (s *Sender) buildRequest(metrics ...*models.Metrics) (*http.Request, error)
 	req.Header.Set("Accept-Encoding", "gzip")
 	if encKey != nil {
 		req.Header.Set("X-Crypto-Key", base64.StdEncoding.EncodeToString(encKey))
+	}
+	if s.localIP != "" {
+		req.Header.Set("X-Real-IP", s.localIP)
 	}
 
 	return req, nil

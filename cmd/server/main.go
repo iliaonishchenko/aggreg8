@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os/signal"
 	"syscall"
@@ -117,6 +118,12 @@ func main() {
 
 	parseFlags(cfg, defaultServerAddress, defaultStoreInterval, defaultFileStoragePath, defaultRestore, defaultKey)
 
+	if cfg.TrustedSubnet != "" {
+		if _, _, err := net.ParseCIDR(cfg.TrustedSubnet); err != nil {
+			log.Fatalf("invalid trusted_subnet %q: %v", cfg.TrustedSubnet, err)
+		}
+	}
+
 	var decrypter router.Decrypter
 	if cfg.CryptoKey != "" {
 		dec, err := cryptopkg.LoadPrivateKey(cfg.CryptoKey)
@@ -157,6 +164,7 @@ func run(ctx context.Context, cfg server.Config, storage service.MetricStorage, 
 	sign := signature.NewSignature(cfg.Key)
 
 	r.Use(logger.WithLogger)
+	r.Use(router.WithTrustedSubnet(cfg.TrustedSubnet))
 	if decrypter != nil {
 		r.Use(router.WithDecryption(decrypter))
 	}

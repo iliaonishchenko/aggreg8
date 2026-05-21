@@ -16,6 +16,7 @@ type Config struct {
 	AuditURL        string  `env:"AUDIT_URL"`
 	CryptoKey       string  `env:"CRYPTO_KEY"`
 	ConfigFile      string  `env:"CONFIG"`
+	TrustedSubnet   string  `env:"TRUSTED_SUBNET"`
 }
 
 // LoadConfig загружает конфигурацию сервера из переменных окружения.

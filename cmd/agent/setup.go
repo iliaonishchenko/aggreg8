@@ -1,12 +1,13 @@
 package main
 
 import (
-	cryptopkg "github.com/iliaonishchenko/aggreg8/internal/crypto"
+	"log"
+
 	"github.com/iliaonishchenko/aggreg8/internal/agent"
 	agentconfig "github.com/iliaonishchenko/aggreg8/internal/config/agent"
+	cryptopkg "github.com/iliaonishchenko/aggreg8/internal/crypto"
 	"github.com/iliaonishchenko/aggreg8/internal/logger"
 	"github.com/iliaonishchenko/aggreg8/internal/signature"
-	"log"
 )
 
 func initSender(config *agentconfig.Config) *agent.Sender {
@@ -26,7 +27,12 @@ func initSender(config *agentconfig.Config) *agent.Sender {
 		encrypter = enc
 	}
 
-	return agent.NewSender(config.ServerAddress, errorClassifier, sign, encrypter)
+	localIP := agent.LocalOutboundIP(config.ServerAddress)
+	if localIP == "" {
+		log.Printf("warning: could not determine local outbound IP for X-Real-IP header")
+	}
+
+	return agent.NewSender(config.ServerAddress, errorClassifier, sign, encrypter, localIP)
 }
 
 func initLogger(config *agentconfig.Config) {
