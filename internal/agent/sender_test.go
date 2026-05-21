@@ -53,7 +53,7 @@ func TestBuildMetricURL(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			classifier := NewAgentErrorClassifier()
-			sender := NewSender(baseURL, classifier, nil, nil)
+			sender := NewSender(baseURL, classifier, nil, nil, "")
 			actualURL := sender.buildMetricURL(baseURL, tt.metricModel)
 			assert.Equal(t, tt.expectedURL, actualURL)
 		})
@@ -70,7 +70,7 @@ func TestSendJSONWithRetries_Success(t *testing.T) {
 		defer server.Close()
 
 		classifier := NewAgentErrorClassifier()
-		sender := NewSender(server.Listener.Addr().String(), classifier, nil, nil)
+		sender := NewSender(server.Listener.Addr().String(), classifier, nil, nil, "")
 
 		metric := &models.Metrics{
 			ID:    "test",
@@ -97,7 +97,7 @@ func TestSendJSONWithRetries_Success(t *testing.T) {
 		defer server.Close()
 
 		classifier := NewAgentErrorClassifier()
-		sender := NewSender(server.Listener.Addr().String(), classifier, nil, nil)
+		sender := NewSender(server.Listener.Addr().String(), classifier, nil, nil, "")
 
 		metric := &models.Metrics{
 			ID:    "test",
@@ -124,7 +124,7 @@ func TestSendJSONWithRetries_Success(t *testing.T) {
 		defer server.Close()
 
 		classifier := NewAgentErrorClassifier()
-		sender := NewSender(server.Listener.Addr().String(), classifier, nil, nil)
+		sender := NewSender(server.Listener.Addr().String(), classifier, nil, nil, "")
 
 		metric := &models.Metrics{
 			ID:    "test",
@@ -149,7 +149,7 @@ func TestSendJSONWithRetries_Failure(t *testing.T) {
 		defer server.Close()
 
 		classifier := NewAgentErrorClassifier()
-		sender := NewSender(server.Listener.Addr().String(), classifier, nil, nil)
+		sender := NewSender(server.Listener.Addr().String(), classifier, nil, nil, "")
 
 		metric := &models.Metrics{
 			ID:    "test",
@@ -173,7 +173,7 @@ func TestSendJSONWithRetries_Failure(t *testing.T) {
 		defer server.Close()
 
 		classifier := NewAgentErrorClassifier()
-		sender := NewSender(server.Listener.Addr().String(), classifier, nil, nil)
+		sender := NewSender(server.Listener.Addr().String(), classifier, nil, nil, "")
 
 		metric := &models.Metrics{
 			ID:    "test",
@@ -197,7 +197,7 @@ func TestSendJSONWithRetries_Failure(t *testing.T) {
 		defer server.Close()
 
 		classifier := NewAgentErrorClassifier()
-		sender := NewSender(server.Listener.Addr().String(), classifier, nil, nil)
+		sender := NewSender(server.Listener.Addr().String(), classifier, nil, nil, "")
 
 		metric := &models.Metrics{
 			ID:    "test",
@@ -216,7 +216,7 @@ func TestSendJSONWithRetries_Failure(t *testing.T) {
 func TestSendJSONWithRetries_ConnectionErrors(t *testing.T) {
 	t.Run("fails after max retries with connection errors", func(t *testing.T) {
 		classifier := NewAgentErrorClassifier()
-		sender := NewSender("localhost:9999", classifier, nil, nil)
+		sender := NewSender("localhost:9999", classifier, nil, nil, "")
 
 		metric := &models.Metrics{
 			ID:    "test",
@@ -244,7 +244,7 @@ func TestSendJSONWithRetries_RetryDelays(t *testing.T) {
 		defer server.Close()
 
 		classifier := NewAgentErrorClassifier()
-		sender := NewSender(server.Listener.Addr().String(), classifier, nil, nil)
+		sender := NewSender(server.Listener.Addr().String(), classifier, nil, nil, "")
 
 		metric := &models.Metrics{
 			ID:    "test",
@@ -322,7 +322,7 @@ func TestSendJSON_Encrypts(t *testing.T) {
 	require.NoError(t, err)
 
 	classifier := NewAgentErrorClassifier()
-	sender := NewSender(server.Listener.Addr().String(), classifier, nil, encrypter)
+	sender := NewSender(server.Listener.Addr().String(), classifier, nil, encrypter, "")
 
 	metric := &models.Metrics{ID: "x", MType: models.Gauge, Value: float64Ptr(1.0)}
 	require.NoError(t, sender.SendJSONWithRetries(metric))
