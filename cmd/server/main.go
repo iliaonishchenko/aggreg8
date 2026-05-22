@@ -20,8 +20,10 @@ import (
 	"github.com/iliaonishchenko/aggreg8/internal/audit"
 	"github.com/iliaonishchenko/aggreg8/internal/config/server"
 	cryptopkg "github.com/iliaonishchenko/aggreg8/internal/crypto"
+	"github.com/iliaonishchenko/aggreg8/internal/grpcserver"
 	"github.com/iliaonishchenko/aggreg8/internal/handler"
 	"github.com/iliaonishchenko/aggreg8/internal/logger"
+	pb "github.com/iliaonishchenko/aggreg8/internal/proto"
 	"github.com/iliaonishchenko/aggreg8/internal/repository"
 	"github.com/iliaonishchenko/aggreg8/internal/repository/file"
 	"github.com/iliaonishchenko/aggreg8/internal/router"
@@ -32,6 +34,7 @@ import (
 	"github.com/iliaonishchenko/aggreg8/internal/signature"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 )
 
 var (
@@ -110,6 +113,7 @@ func main() {
 	defaultFileStoragePath := "./snapshot.json"
 	defaultRestore := false
 	defaultKey := ""
+	defaultGRPCAddress := "localhost:3200"
 
 	cfg, err := server.LoadConfig()
 	if err != nil {
@@ -117,6 +121,10 @@ func main() {
 	}
 
 	parseFlags(cfg, defaultServerAddress, defaultStoreInterval, defaultFileStoragePath, defaultRestore, defaultKey)
+
+	if cfg.GRPCAddress == "" {
+		cfg.GRPCAddress = defaultGRPCAddress
+	}
 
 	if cfg.TrustedSubnet != "" {
 		if _, _, err := net.ParseCIDR(cfg.TrustedSubnet); err != nil {
@@ -202,21 +210,56 @@ func run(ctx context.Context, cfg server.Config, storage service.MetricStorage, 
 		Handler: r,
 	}
 
-	errCh := make(chan error, 1)
+	errCh := make(chan error, 2)
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- err
 		}
-		close(errCh)
 	}()
+
+	grpcSrv, grpcErr := startGRPCServer(cfg, storage, notifier, errCh)
+	if grpcErr != nil {
+		return grpcErr
+	}
 
 	select {
 	case <-ctx.Done():
 		logger.Log.Info("Shutting down server...")
+		if grpcSrv != nil {
+			grpcSrv.GracefulStop()
+		}
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		return srv.Shutdown(shutdownCtx)
 	case err := <-errCh:
+		if grpcSrv != nil {
+			grpcSrv.GracefulStop()
+		}
 		return err
 	}
+}
+
+func startGRPCServer(cfg server.Config, storage service.MetricStorage, notifier audit.Notifier, errCh chan<- error) (*grpc.Server, error) {
+	if cfg.GRPCAddress == "" {
+		return nil, nil
+	}
+
+	lis, err := net.Listen("tcp", cfg.GRPCAddress)
+	if err != nil {
+		return nil, fmt.Errorf("ошибка прослушивания gRPC-адреса %q: %w", cfg.GRPCAddress, err)
+	}
+
+	grpcSrv := grpc.NewServer(grpc.UnaryInterceptor(
+		grpcserver.TrustedSubnetInterceptor(cfg.TrustedSubnet),
+	))
+	pb.RegisterMetricsServer(grpcSrv, grpcserver.NewMetricsServer(storage, notifier))
+
+	logger.Log.Info("Запуск gRPC-сервера", zap.String("address", cfg.GRPCAddress))
+	go func() {
+		if err := grpcSrv.Serve(lis); err != nil {
+			errCh <- err
+		}
+	}()
+
+	return grpcSrv, nil
 }
