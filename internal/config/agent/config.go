@@ -15,6 +15,7 @@ type Config struct {
 	CryptoKey      string `env:"CRYPTO_KEY"`
 	LogLevel       string `env:"LOG_LEVEL" envDefault:"info"`
 	ConfigFile     string `env:"CONFIG"`
+	GRPCAddress    string `env:"GRPC_ADDRESS"`
 }
 
 // LoadConfig загружает конфигурацию агента из переменных окружения.

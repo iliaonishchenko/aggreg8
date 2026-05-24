@@ -3,6 +3,7 @@ package agent
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -30,16 +31,18 @@ type Sender struct {
 	classifier *AgentErrorClassifier
 	signature  DataSignature
 	encrypter  DataEncrypter
+	localIP    string
 }
 
 // NewSender создаёт новый Sender для указанного эндпоинта сервера.
-func NewSender(endpoint string, classifier *AgentErrorClassifier, signature DataSignature, encrypter DataEncrypter) *Sender {
+func NewSender(endpoint string, classifier *AgentErrorClassifier, signature DataSignature, encrypter DataEncrypter, localIP string) *Sender {
 	return &Sender{
 		endpoint:   endpoint,
 		client:     http.Client{},
 		classifier: classifier,
 		signature:  signature,
 		encrypter:  encrypter,
+		localIP:    localIP,
 	}
 }
 
@@ -128,13 +131,13 @@ func (s *Sender) buildMetricURL(baseURL string, metric *models.Metrics) string {
 }
 
 // SendJSONWithRetries отправляет метрики в формате JSON с автоматическими повторами при ошибках.
-func (s *Sender) SendJSONWithRetries(metrics ...*models.Metrics) error {
+func (s *Sender) SendJSONWithRetries(ctx context.Context, metrics ...*models.Metrics) error {
 	req, err := s.buildRequest(metrics...)
 	if err != nil {
 		return fmt.Errorf("error building request to agent %w", err)
 	}
 
-	return s.sendWithRetries(req)
+	return s.sendWithRetries(ctx, req)
 }
 
 func (s *Sender) buildRequest(metrics ...*models.Metrics) (*http.Request, error) {
@@ -191,6 +194,9 @@ func (s *Sender) buildRequest(metrics ...*models.Metrics) (*http.Request, error)
 	if encKey != nil {
 		req.Header.Set("X-Crypto-Key", base64.StdEncoding.EncodeToString(encKey))
 	}
+	if s.localIP != "" {
+		req.Header.Set("X-Real-IP", s.localIP)
+	}
 
 	return req, nil
 }
@@ -203,7 +209,7 @@ func (s *Sender) doSingleRequest(req *http.Request) (*http.Response, error) {
 	return resp, err
 }
 
-func (s *Sender) sendWithRetries(req *http.Request) error {
+func (s *Sender) sendWithRetries(ctx context.Context, req *http.Request) error {
 	const (
 		maxAttempts = 4
 		deltaDelay  = 2 * time.Second
@@ -213,11 +219,16 @@ func (s *Sender) sendWithRetries(req *http.Request) error {
 
 	for attempt := 0; attempt < maxAttempts; attempt++ {
 		if attempt != 0 {
-			time.Sleep(currDelay)
+			if err := waitOrCancel(ctx, currDelay); err != nil {
+				if lastErr != nil {
+					return fmt.Errorf("отправка прервана: %w (последняя ошибка: %v)", err, lastErr)
+				}
+				return err
+			}
 			currDelay += deltaDelay
 		}
 
-		resp, err := s.doSingleRequest(req)
+		resp, err := s.doSingleRequest(req.Clone(ctx))
 		if resp != nil {
 			defer resp.Body.Close()
 		}

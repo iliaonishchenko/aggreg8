@@ -20,6 +20,8 @@ func parseFlags(cfg *server.Config, defaultServerAddress string, defaultStoreInt
 	var auditURL string
 	var cryptoKey string
 	var configFile string
+	var trustedSubnet string
+	var grpcAddress string
 
 	flag.StringVar(&serverAddress, "a", "", "address and port to run server")
 	flag.IntVar(&storeInterval, "i", 0, "interval to store aggregator data (seconds)")
@@ -32,6 +34,9 @@ func parseFlags(cfg *server.Config, defaultServerAddress string, defaultStoreInt
 	flag.StringVar(&cryptoKey, "crypto-key", "", "path to RSA private key PEM file")
 	flag.StringVar(&configFile, "c", "", "path to config file")
 	flag.StringVar(&configFile, "config", "", "path to config file")
+	flag.StringVar(&trustedSubnet, "t", "", "trusted subnet in CIDR notation")
+	flag.StringVar(&grpcAddress, "g", "", "address and port to run gRPC server")
+	flag.StringVar(&grpcAddress, "grpc-address", "", "address and port to run gRPC server")
 
 	flag.Parse()
 
@@ -83,6 +88,20 @@ func parseFlags(cfg *server.Config, defaultServerAddress string, defaultStoreInt
 	}
 	if cfg.AuditURL == "" {
 		cfg.AuditURL = auditURL
+	}
+
+	if cfg.TrustedSubnet == "" {
+		cfg.TrustedSubnet = trustedSubnet
+	}
+	if cfg.TrustedSubnet == "" && fileCfg != nil {
+		cfg.TrustedSubnet = fileCfg.TrustedSubnet
+	}
+
+	if cfg.GRPCAddress == "" {
+		cfg.GRPCAddress = grpcAddress
+	}
+	if cfg.GRPCAddress == "" && fileCfg != nil {
+		cfg.GRPCAddress = fileCfg.GRPCAddress
 	}
 
 	if cfg.StoreInterval == nil && storeInterval != 0 {

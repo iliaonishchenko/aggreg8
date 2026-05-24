@@ -17,6 +17,7 @@ func ParseFlags(cfg *agentconfig.Config, defaultServerAddress, defaultKey string
 	var rateLimit int
 	var cryptoKey string
 	var configFile string
+	var grpcAddress string
 
 	flag.StringVar(&serverAddress, "a", "", "address and port to run server")
 	flag.IntVar(&reportInterval, "r", 0, "report interval in seconds")
@@ -26,6 +27,8 @@ func ParseFlags(cfg *agentconfig.Config, defaultServerAddress, defaultKey string
 	flag.StringVar(&cryptoKey, "crypto-key", "", "path to RSA public key PEM file")
 	flag.StringVar(&configFile, "c", "", "path to config file")
 	flag.StringVar(&configFile, "config", "", "path to config file")
+	flag.StringVar(&grpcAddress, "g", "", "gRPC server address (если задан, агент отправляет метрики по gRPC)")
+	flag.StringVar(&grpcAddress, "grpc-address", "", "gRPC server address (если задан, агент отправляет метрики по gRPC)")
 
 	flag.Parse()
 
@@ -105,5 +108,12 @@ func ParseFlags(cfg *agentconfig.Config, defaultServerAddress, defaultKey string
 	}
 	if cfg.RateLimit == 0 {
 		cfg.RateLimit = defaultRateLimit
+	}
+
+	if cfg.GRPCAddress == "" {
+		cfg.GRPCAddress = grpcAddress
+	}
+	if cfg.GRPCAddress == "" && fileCfg != nil {
+		cfg.GRPCAddress = fileCfg.GRPCAddress
 	}
 }

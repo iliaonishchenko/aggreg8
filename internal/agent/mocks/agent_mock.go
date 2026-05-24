@@ -5,6 +5,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
@@ -96,9 +97,9 @@ func (m *MockSenderService) EXPECT() *MockSenderServiceMockRecorder {
 }
 
 // SendJSONWithRetries mocks base method.
-func (m *MockSenderService) SendJSONWithRetries(metrics ...*models.Metrics) error {
+func (m *MockSenderService) SendJSONWithRetries(ctx context.Context, metrics ...*models.Metrics) error {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{}
+	varargs := []interface{}{ctx}
 	for _, a := range metrics {
 		varargs = append(varargs, a)
 	}
@@ -108,7 +109,8 @@ func (m *MockSenderService) SendJSONWithRetries(metrics ...*models.Metrics) erro
 }
 
 // SendJSONWithRetries indicates an expected call of SendJSONWithRetries.
-func (mr *MockSenderServiceMockRecorder) SendJSONWithRetries(metrics ...interface{}) *gomock.Call {
+func (mr *MockSenderServiceMockRecorder) SendJSONWithRetries(ctx interface{}, metrics ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendJSONWithRetries", reflect.TypeOf((*MockSenderService)(nil).SendJSONWithRetries), metrics...)
+	varargs := append([]interface{}{ctx}, metrics...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendJSONWithRetries", reflect.TypeOf((*MockSenderService)(nil).SendJSONWithRetries), varargs...)
 }

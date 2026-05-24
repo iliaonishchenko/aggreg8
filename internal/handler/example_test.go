@@ -11,13 +11,14 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/iliaonishchenko/aggreg8/internal/audit"
 	models "github.com/iliaonishchenko/aggreg8/internal/model"
+	"github.com/iliaonishchenko/aggreg8/internal/service"
 	"github.com/iliaonishchenko/aggreg8/internal/service/memory"
 )
 
 func ExampleUpdateHandler_HandleUpdate() {
 	storage := memory.NewMemStorage()
 	notifier := audit.NewNotifier(10)
-	h := NewUpdateHandler(storage, notifier)
+	h := NewUpdateHandler(service.NewRecorder(storage, notifier))
 
 	r := chi.NewRouter()
 	r.Post("/update/{type}/{name}/{value}", h.HandleUpdate)
@@ -36,7 +37,7 @@ func ExampleUpdateHandler_HandleUpdate() {
 func ExampleUpdateHandler_HandleUpdateJSON() {
 	storage := memory.NewMemStorage()
 	notifier := audit.NewNotifier(10)
-	h := NewUpdateHandler(storage, notifier)
+	h := NewUpdateHandler(service.NewRecorder(storage, notifier))
 
 	r := chi.NewRouter()
 	r.Post("/update", h.HandleUpdateJSON)
@@ -63,7 +64,7 @@ func ExampleUpdateHandler_HandleUpdateJSON() {
 func ExampleUpdateHandler_HandleBatchUpdateJSON() {
 	storage := memory.NewMemStorage()
 	notifier := audit.NewNotifier(10)
-	h := NewUpdateHandler(storage, notifier)
+	h := NewUpdateHandler(service.NewRecorder(storage, notifier))
 
 	r := chi.NewRouter()
 	r.Post("/updates", h.HandleBatchUpdateJSON)

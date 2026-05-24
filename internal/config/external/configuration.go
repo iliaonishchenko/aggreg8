@@ -12,6 +12,8 @@ type ExternalServerConfiguration struct {
 	StoreFileName string `json:"store_file"`
 	DatabaseDSN   string `json:"database_dsn"`
 	CryptoKey     string `json:"crypto_key"`
+	TrustedSubnet string `json:"trusted_subnet"`
+	GRPCAddress   string `json:"grpc_address"`
 }
 
 type ExternalAgentConfiguration struct {
@@ -21,6 +23,7 @@ type ExternalAgentConfiguration struct {
 	CryptoKey      string `json:"crypto_key"`
 	Key            string `json:"key"`
 	RateLimit      int    `json:"rate_limit"`
+	GRPCAddress    string `json:"grpc_address"`
 }
 
 func ConfigurationFromFile[T any](file string) (*T, error) {
