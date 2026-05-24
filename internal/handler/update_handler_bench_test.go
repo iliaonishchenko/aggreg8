@@ -12,13 +12,14 @@ import (
 	"github.com/iliaonishchenko/aggreg8/internal/audit"
 	"github.com/iliaonishchenko/aggreg8/internal/logger"
 	models "github.com/iliaonishchenko/aggreg8/internal/model"
+	"github.com/iliaonishchenko/aggreg8/internal/service"
 	"github.com/iliaonishchenko/aggreg8/internal/service/memory"
 )
 
 func BenchmarkHandleUpdateJSON(b *testing.B) {
 	logger.Initialize("error")
 	storage := memory.NewMemStorage()
-	h := NewUpdateHandler(storage, audit.NewNotifier(10))
+	h := NewUpdateHandler(service.NewRecorder(storage, audit.NewNotifier(10)))
 
 	r := chi.NewRouter()
 	r.Post("/update", h.HandleUpdateJSON)
@@ -40,7 +41,7 @@ func BenchmarkHandleBatchUpdateJSON(b *testing.B) {
 	for _, size := range []int{1, 10, 100} {
 		b.Run(fmt.Sprintf("size_%d", size), func(b *testing.B) {
 			storage := memory.NewMemStorage()
-			h := NewUpdateHandler(storage, audit.NewNotifier(10))
+			h := NewUpdateHandler(service.NewRecorder(storage, audit.NewNotifier(10)))
 
 			r := chi.NewRouter()
 			r.Post("/updates", h.HandleBatchUpdateJSON)

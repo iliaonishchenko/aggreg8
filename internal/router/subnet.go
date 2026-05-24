@@ -5,9 +5,12 @@ import (
 	"net/http"
 )
 
+// WithTrustedSubnet возвращает middleware проверки X-Real-IP по доверенной подсети.
+// Если cidr пустой, возвращается nil — вызывающая сторона не должна подключать middleware,
+// чтобы не добавлять лишний вызов на каждый HTTP-запрос.
 func WithTrustedSubnet(cidr string) func(http.Handler) http.Handler {
 	if cidr == "" {
-		return func(h http.Handler) http.Handler { return h }
+		return nil
 	}
 
 	_, ipNet, err := net.ParseCIDR(cidr)

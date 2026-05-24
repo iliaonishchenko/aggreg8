@@ -15,10 +15,11 @@ const RealIPMetadataKey = "x-real-ip"
 
 // TrustedSubnetInterceptor создаёт UnaryInterceptor, который проверяет,
 // что IP агента (из метаданных x-real-ip) принадлежит указанной доверенной подсети.
-// Если cidr пустой, проверка не выполняется и все запросы пропускаются.
+// Если cidr пустой, возвращается nil — вызывающая сторона не должна регистрировать
+// перехватчик, чтобы не добавлять лишний вызов на каждый RPC.
 func TrustedSubnetInterceptor(cidr string) grpc.UnaryServerInterceptor {
 	if cidr == "" {
-		return passThrough
+		return nil
 	}
 
 	_, ipNet, err := net.ParseCIDR(cidr)
@@ -46,8 +47,4 @@ func TrustedSubnetInterceptor(cidr string) grpc.UnaryServerInterceptor {
 		}
 		return handler(ctx, req)
 	}
-}
-
-func passThrough(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
-	return handler(ctx, req)
 }

@@ -3,6 +3,7 @@ package agent
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/base64"
@@ -78,7 +79,7 @@ func TestSendJSONWithRetries_Success(t *testing.T) {
 			Value: float64Ptr(42.0),
 		}
 
-		err := sender.SendJSONWithRetries(metric)
+		err := sender.SendJSONWithRetries(context.Background(), metric)
 
 		assert.NoError(t, err)
 		assert.Equal(t, int32(1), atomic.LoadInt32(&callCount), "should only make 1 attempt")
@@ -105,7 +106,7 @@ func TestSendJSONWithRetries_Success(t *testing.T) {
 			Value: float64Ptr(42.0),
 		}
 
-		err := sender.SendJSONWithRetries(metric)
+		err := sender.SendJSONWithRetries(context.Background(), metric)
 
 		assert.NoError(t, err)
 		assert.Equal(t, int32(2), atomic.LoadInt32(&callCount), "should make 2 attempts")
@@ -132,7 +133,7 @@ func TestSendJSONWithRetries_Success(t *testing.T) {
 			Value: float64Ptr(42.0),
 		}
 
-		err := sender.SendJSONWithRetries(metric)
+		err := sender.SendJSONWithRetries(context.Background(), metric)
 
 		assert.NoError(t, err)
 		assert.Equal(t, int32(3), atomic.LoadInt32(&callCount), "should make 3 attempts")
@@ -157,7 +158,7 @@ func TestSendJSONWithRetries_Failure(t *testing.T) {
 			Value: float64Ptr(42.0),
 		}
 
-		err := sender.SendJSONWithRetries(metric)
+		err := sender.SendJSONWithRetries(context.Background(), metric)
 
 		assert.Error(t, err)
 		assert.Equal(t, int32(4), atomic.LoadInt32(&callCount), "should make 4 attempts")
@@ -181,7 +182,7 @@ func TestSendJSONWithRetries_Failure(t *testing.T) {
 			Value: float64Ptr(42.0),
 		}
 
-		err := sender.SendJSONWithRetries(metric)
+		err := sender.SendJSONWithRetries(context.Background(), metric)
 
 		assert.Error(t, err)
 		assert.Equal(t, int32(1), atomic.LoadInt32(&callCount), "should NOT retry on 4xx")
@@ -205,7 +206,7 @@ func TestSendJSONWithRetries_Failure(t *testing.T) {
 			Value: float64Ptr(42.0),
 		}
 
-		err := sender.SendJSONWithRetries(metric)
+		err := sender.SendJSONWithRetries(context.Background(), metric)
 
 		assert.Error(t, err)
 		assert.Equal(t, int32(1), atomic.LoadInt32(&callCount), "should NOT retry on 4xx")
@@ -224,7 +225,7 @@ func TestSendJSONWithRetries_ConnectionErrors(t *testing.T) {
 			Value: float64Ptr(42.0),
 		}
 
-		err := sender.SendJSONWithRetries(metric)
+		err := sender.SendJSONWithRetries(context.Background(), metric)
 
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "failed after 4 attempts")
@@ -252,7 +253,7 @@ func TestSendJSONWithRetries_RetryDelays(t *testing.T) {
 			Value: float64Ptr(42.0),
 		}
 
-		sender.SendJSONWithRetries(metric)
+		sender.SendJSONWithRetries(context.Background(), metric)
 
 		require.Equal(t, 4, len(timestamps), "should have 4 attempts")
 
@@ -325,7 +326,7 @@ func TestSendJSON_Encrypts(t *testing.T) {
 	sender := NewSender(server.Listener.Addr().String(), classifier, nil, encrypter, "")
 
 	metric := &models.Metrics{ID: "x", MType: models.Gauge, Value: float64Ptr(1.0)}
-	require.NoError(t, sender.SendJSONWithRetries(metric))
+	require.NoError(t, sender.SendJSONWithRetries(context.Background(), metric))
 
 	assert.NotEmpty(t, receivedKeyHeader)
 

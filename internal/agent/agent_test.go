@@ -39,7 +39,7 @@ func TestRun(t *testing.T) {
 		mockCollector.EXPECT().CollectSystem().AnyTimes()
 		mockCollector.EXPECT().CollectRuntime().AnyTimes()
 		mockCollector.EXPECT().GetMetrics().AnyTimes()
-		mockSender.EXPECT().SendJSONWithRetries().AnyTimes()
+		mockSender.EXPECT().SendJSONWithRetries(gomock.Any()).AnyTimes()
 
 		go agent.Run(ctx)
 

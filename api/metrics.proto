@@ -1,8 +1,12 @@
-syntax = "proto3";
+edition = "2023";
 
 package metrics;
 
+import "google/protobuf/go_features.proto";
+
 option go_package = "github.com/iliaonishchenko/aggreg8/internal/proto";
+option features.(pb.go).api_level = API_OPAQUE;
+option features.field_presence = IMPLICIT;
 
 // Metric описывает единичную метрику.
 message Metric {

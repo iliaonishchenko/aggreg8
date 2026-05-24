@@ -3,9 +3,7 @@ package grpcserver
 
 import (
 	"context"
-	"time"
 
-	"github.com/iliaonishchenko/aggreg8/internal/audit"
 	"github.com/iliaonishchenko/aggreg8/internal/logger"
 	models "github.com/iliaonishchenko/aggreg8/internal/model"
 	pb "github.com/iliaonishchenko/aggreg8/internal/proto"
@@ -19,16 +17,12 @@ import (
 // MetricsServer реализует gRPC-сервис metrics.Metrics.
 type MetricsServer struct {
 	pb.UnimplementedMetricsServer
-	storage  service.MetricStorage
-	notifier audit.Notifier
+	recorder *service.Recorder
 }
 
-// NewMetricsServer создаёт gRPC-сервис метрик, использующий переданное хранилище и нотификатор аудита.
-func NewMetricsServer(storage service.MetricStorage, notifier audit.Notifier) *MetricsServer {
-	return &MetricsServer{
-		storage:  storage,
-		notifier: notifier,
-	}
+// NewMetricsServer создаёт gRPC-сервис метрик, использующий общий Recorder.
+func NewMetricsServer(recorder *service.Recorder) *MetricsServer {
+	return &MetricsServer{recorder: recorder}
 }
 
 // UpdateMetrics принимает батч метрик от агента, валидирует и сохраняет их в хранилище.
@@ -46,33 +40,12 @@ func (s *MetricsServer) UpdateMetrics(ctx context.Context, req *pb.UpdateMetrics
 		metrics = append(metrics, converted)
 	}
 
-	if err := s.storage.UpdateMetrics(metrics); err != nil {
+	if err := s.recorder.Record(metrics, clientIP(ctx)); err != nil {
 		logger.Log.Error("ошибка сохранения батча метрик через gRPC", logger.Err(err))
 		return nil, status.Error(codes.Internal, "не удалось сохранить метрики")
 	}
 
-	s.notifyAudit(ctx, metrics)
-
-	return &pb.UpdateMetricsResponse{}, nil
-}
-
-func (s *MetricsServer) notifyAudit(ctx context.Context, metrics []*models.Metrics) {
-	if s.notifier == nil {
-		return
-	}
-	names := make([]string, 0, len(metrics))
-	for _, m := range metrics {
-		names = append(names, m.ID)
-	}
-	event := audit.AuditEvent{
-		TS:        time.Now().Unix(),
-		Metrics:   names,
-		IPAddress: clientIP(ctx),
-	}
-	errs := s.notifier.NotifyAll(event)
-	for _, err := range errs {
-		logger.Log.Error("ошибка отправки аудит-события для gRPC батча", logger.Err(err))
-	}
+	return pb.UpdateMetricsResponse_builder{}.Build(), nil
 }
 
 // clientIP извлекает IP клиента сначала из метаданных x-real-ip, затем из peer-адреса.

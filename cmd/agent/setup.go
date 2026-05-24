@@ -5,7 +5,7 @@ import (
 
 	"github.com/iliaonishchenko/aggreg8/internal/agent"
 	agentconfig "github.com/iliaonishchenko/aggreg8/internal/config/agent"
-	cryptopkg "github.com/iliaonishchenko/aggreg8/internal/crypto"
+	"github.com/iliaonishchenko/aggreg8/internal/crypto"
 	"github.com/iliaonishchenko/aggreg8/internal/logger"
 	"github.com/iliaonishchenko/aggreg8/internal/signature"
 )
@@ -27,7 +27,7 @@ func initHTTPSender(config *agentconfig.Config) *agent.Sender {
 	}
 
 	if config.CryptoKey != "" {
-		enc, err := cryptopkg.LoadPublicKey(config.CryptoKey)
+		enc, err := crypto.LoadPublicKey(config.CryptoKey)
 		if err != nil {
 			log.Fatalf("error loading public key: %v", err)
 		}

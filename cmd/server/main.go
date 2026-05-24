@@ -165,14 +165,17 @@ func run(ctx context.Context, cfg server.Config, storage service.MetricStorage, 
 
 	r := chi.NewRouter()
 
-	updateHandler := handler.NewUpdateHandler(storage, notifier)
+	recorder := service.NewRecorder(storage, notifier)
+	updateHandler := handler.NewUpdateHandler(recorder)
 	allHandler := handler.NewAllMetricsHandler(storage)
 	getMetricHandler := handler.NewGetMetricHandler(storage)
 	pingHandler := handler.NewPingHandler(repo)
 	sign := signature.NewSignature(cfg.Key)
 
 	r.Use(logger.WithLogger)
-	r.Use(router.WithTrustedSubnet(cfg.TrustedSubnet))
+	if subnet := router.WithTrustedSubnet(cfg.TrustedSubnet); subnet != nil {
+		r.Use(subnet)
+	}
 	if decrypter != nil {
 		r.Use(router.WithDecryption(decrypter))
 	}
@@ -217,7 +220,7 @@ func run(ctx context.Context, cfg server.Config, storage service.MetricStorage, 
 		}
 	}()
 
-	grpcSrv, grpcErr := startGRPCServer(cfg, storage, notifier, errCh)
+	grpcSrv, grpcErr := startGRPCServer(cfg, recorder, errCh)
 	if grpcErr != nil {
 		return grpcErr
 	}
@@ -239,7 +242,7 @@ func run(ctx context.Context, cfg server.Config, storage service.MetricStorage, 
 	}
 }
 
-func startGRPCServer(cfg server.Config, storage service.MetricStorage, notifier audit.Notifier, errCh chan<- error) (*grpc.Server, error) {
+func startGRPCServer(cfg server.Config, recorder *service.Recorder, errCh chan<- error) (*grpc.Server, error) {
 	if cfg.GRPCAddress == "" {
 		return nil, nil
 	}
@@ -249,13 +252,16 @@ func startGRPCServer(cfg server.Config, storage service.MetricStorage, notifier 
 		return nil, fmt.Errorf("ошибка прослушивания gRPC-адреса %q: %w", cfg.GRPCAddress, err)
 	}
 
-	grpcSrv := grpc.NewServer(grpc.UnaryInterceptor(
-		grpcserver.TrustedSubnetInterceptor(cfg.TrustedSubnet),
-	))
-	pb.RegisterMetricsServer(grpcSrv, grpcserver.NewMetricsServer(storage, notifier))
+	var grpcOpts []grpc.ServerOption
+	if interceptor := grpcserver.TrustedSubnetInterceptor(cfg.TrustedSubnet); interceptor != nil {
+		grpcOpts = append(grpcOpts, grpc.UnaryInterceptor(interceptor))
+	}
+	grpcSrv := grpc.NewServer(grpcOpts...)
+	pb.RegisterMetricsServer(grpcSrv, grpcserver.NewMetricsServer(recorder))
 
 	logger.Log.Info("Запуск gRPC-сервера", zap.String("address", cfg.GRPCAddress))
 	go func() {
+		defer lis.Close()
 		if err := grpcSrv.Serve(lis); err != nil {
 			errCh <- err
 		}

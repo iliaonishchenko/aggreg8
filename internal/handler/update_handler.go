@@ -2,12 +2,11 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/iliaonishchenko/aggreg8/internal/audit"
 	"github.com/iliaonishchenko/aggreg8/internal/logger"
 	models "github.com/iliaonishchenko/aggreg8/internal/model"
 	"github.com/iliaonishchenko/aggreg8/internal/service"
@@ -15,16 +14,12 @@ import (
 
 // UpdateHandler обрабатывает HTTP-запросы на создание и обновление метрик.
 type UpdateHandler struct {
-	storage  service.MetricStorage
-	notifier audit.Notifier
+	recorder *service.Recorder
 }
 
-// NewUpdateHandler создаёт новый UpdateHandler с указанным хранилищем и нотификатором аудита.
-func NewUpdateHandler(memStorage service.MetricStorage, notifier audit.Notifier) *UpdateHandler {
-	return &UpdateHandler{
-		storage:  memStorage,
-		notifier: notifier,
-	}
+// NewUpdateHandler создаёт новый UpdateHandler с общим Recorder.
+func NewUpdateHandler(recorder *service.Recorder) *UpdateHandler {
+	return &UpdateHandler{recorder: recorder}
 }
 
 // HandleUpdate обрабатывает обновление метрики через URL-параметры: POST /update/{type}/{name}/{value}.
@@ -39,6 +34,7 @@ func (h UpdateHandler) HandleUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var metric models.Metrics
 	switch metricType {
 	case models.Gauge:
 		parsedValue, err := strconv.ParseFloat(value, 64)
@@ -46,41 +42,28 @@ func (h UpdateHandler) HandleUpdate(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		metric := models.Metrics{ID: name, MType: models.Gauge, Value: &parsedValue}
-		ok := h.storage.UpdateMetric(&metric)
-		if !ok {
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
+		metric = models.Metrics{ID: name, MType: models.Gauge, Value: &parsedValue}
 	case models.Counter:
 		parsedValue, err := strconv.ParseInt(value, 10, 64)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-
 		delta := parsedValue
-		metric := models.Metrics{ID: name, MType: models.Counter, Delta: &delta}
-		ok := h.storage.UpdateMetric(&metric)
-		if !ok {
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
+		metric = models.Metrics{ID: name, MType: models.Counter, Delta: &delta}
 	default:
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	auditEvent := audit.AuditEvent{
-		TS:        time.Now().Unix(),
-		Metrics:   []string{name},
-		IPAddress: r.RemoteAddr,
-	}
-	errs := h.notifier.NotifyAll(auditEvent)
-	if len(errs) > 0 {
-		for _, err := range errs {
-			logger.Log.Error("failed to audit metric", logger.Err(err))
+	if err := h.recorder.RecordOne(&metric, r.RemoteAddr); err != nil {
+		if errors.Is(err, service.ErrUpdateMetricRejected) {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
 		}
+		logger.Log.Error("failed to record metric", logger.Err(err))
+		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
@@ -104,22 +87,10 @@ func (h UpdateHandler) HandleUpdateJSON(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if ok := h.storage.UpdateMetric(&metrics); !ok {
-		logger.Log.Error("failed to update metric")
+	if err := h.recorder.RecordOne(&metrics, r.RemoteAddr); err != nil {
+		logger.Log.Error("failed to update metric", logger.Err(err))
 		w.WriteHeader(http.StatusInternalServerError)
 		return
-	}
-
-	auditEvent := audit.AuditEvent{
-		TS:        time.Now().Unix(),
-		Metrics:   []string{metrics.ID},
-		IPAddress: r.RemoteAddr,
-	}
-	errs := h.notifier.NotifyAll(auditEvent)
-	if len(errs) > 0 {
-		for _, err := range errs {
-			logger.Log.Error("failed to audit json metric", logger.Err(err))
-		}
 	}
 
 	w.WriteHeader(http.StatusOK)
@@ -143,28 +114,11 @@ func (h UpdateHandler) HandleBatchUpdateJSON(w http.ResponseWriter, r *http.Requ
 			return
 		}
 	}
-	err := h.storage.UpdateMetrics(metrics)
-	if err != nil {
+
+	if err := h.recorder.Record(metrics, r.RemoteAddr); err != nil {
 		logger.Log.Error("failed to update metrics batch", logger.Err(err))
 		w.WriteHeader(http.StatusInternalServerError)
 		return
-	}
-
-	metricNames := make([]string, 0, len(metrics))
-	for _, metric := range metrics {
-		metricNames = append(metricNames, metric.ID)
-	}
-
-	auditEvent := audit.AuditEvent{
-		TS:        time.Now().Unix(),
-		Metrics:   metricNames,
-		IPAddress: r.RemoteAddr,
-	}
-	errs := h.notifier.NotifyAll(auditEvent)
-	if len(errs) > 0 {
-		for _, err := range errs {
-			logger.Log.Error("failed to audit metrics batch", logger.Err(err))
-		}
 	}
 
 	w.WriteHeader(http.StatusOK)

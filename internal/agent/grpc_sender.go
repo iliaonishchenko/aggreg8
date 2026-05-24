@@ -41,16 +41,16 @@ func NewGRPCSender(target, localIP string) (*GRPCSender, error) {
 
 // SendJSONWithRetries отправляет батч метрик через UpdateMetrics RPC с автоматическими повторами.
 // Имя метода сохранено для совместимости с SenderService.
-func (s *GRPCSender) SendJSONWithRetries(metrics ...*models.Metrics) error {
+func (s *GRPCSender) SendJSONWithRetries(ctx context.Context, metrics ...*models.Metrics) error {
 	if len(metrics) == 0 {
 		return nil
 	}
 
 	req := buildUpdateMetricsRequest(metrics)
-	return s.sendWithRetries(req)
+	return s.sendWithRetries(ctx, req)
 }
 
-func (s *GRPCSender) sendWithRetries(req *pb.UpdateMetricsRequest) error {
+func (s *GRPCSender) sendWithRetries(ctx context.Context, req *pb.UpdateMetricsRequest) error {
 	const (
 		maxAttempts = 4
 		deltaDelay  = 2 * time.Second
@@ -60,11 +60,16 @@ func (s *GRPCSender) sendWithRetries(req *pb.UpdateMetricsRequest) error {
 
 	for attempt := 0; attempt < maxAttempts; attempt++ {
 		if attempt != 0 {
-			time.Sleep(currDelay)
+			if err := waitOrCancel(ctx, currDelay); err != nil {
+				if lastErr != nil {
+					return fmt.Errorf("отправка по gRPC прервана: %w (последняя ошибка: %v)", err, lastErr)
+				}
+				return err
+			}
 			currDelay += deltaDelay
 		}
 
-		err := s.doSingleCall(req)
+		err := s.doSingleCall(ctx, req)
 		if err == nil {
 			return nil
 		}
@@ -78,8 +83,8 @@ func (s *GRPCSender) sendWithRetries(req *pb.UpdateMetricsRequest) error {
 	return fmt.Errorf("не удалось отправить метрики по gRPC после %d попыток: %w", maxAttempts, lastErr)
 }
 
-func (s *GRPCSender) doSingleCall(req *pb.UpdateMetricsRequest) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+func (s *GRPCSender) doSingleCall(parent context.Context, req *pb.UpdateMetricsRequest) error {
+	ctx, cancel := context.WithTimeout(parent, 10*time.Second)
 	defer cancel()
 
 	if s.localIP != "" {
@@ -88,6 +93,19 @@ func (s *GRPCSender) doSingleCall(req *pb.UpdateMetricsRequest) error {
 
 	_, err := s.client.UpdateMetrics(ctx, req)
 	return err
+}
+
+// waitOrCancel спит указанный интервал, но прерывается при отмене контекста,
+// чтобы graceful shutdown не блокировался на time.Sleep.
+func waitOrCancel(ctx context.Context, d time.Duration) error {
+	t := time.NewTimer(d)
+	defer t.Stop()
+	select {
+	case <-t.C:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 // Close закрывает gRPC-соединение.
@@ -103,24 +121,24 @@ func buildUpdateMetricsRequest(metrics []*models.Metrics) *pb.UpdateMetricsReque
 	for _, m := range metrics {
 		out = append(out, modelToProto(m))
 	}
-	return &pb.UpdateMetricsRequest{Metrics: out}
+	return pb.UpdateMetricsRequest_builder{Metrics: out}.Build()
 }
 
 func modelToProto(m *models.Metrics) *pb.Metric {
-	pm := &pb.Metric{Id: m.ID}
+	b := pb.Metric_builder{Id: m.ID}
 	switch m.MType {
 	case models.Gauge:
-		pm.Type = pb.Metric_GAUGE
+		b.Type = pb.Metric_GAUGE
 		if m.Value != nil {
-			pm.Value = *m.Value
+			b.Value = *m.Value
 		}
 	case models.Counter:
-		pm.Type = pb.Metric_COUNTER
+		b.Type = pb.Metric_COUNTER
 		if m.Delta != nil {
-			pm.Delta = *m.Delta
+			b.Delta = *m.Delta
 		}
 	}
-	return pm
+	return b.Build()
 }
 
 // isRetriableGRPCError определяет, имеет ли смысл повторять gRPC-запрос.

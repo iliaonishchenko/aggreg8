@@ -16,7 +16,7 @@ type CollectorService interface {
 
 // SenderService определяет интерфейс отправки метрик на сервер с ретраями.
 type SenderService interface {
-	SendJSONWithRetries(metrics ...*models.Metrics) error
+	SendJSONWithRetries(ctx context.Context, metrics ...*models.Metrics) error
 }
 
 // Agent координирует периодический сбор и отправку метрик с ограничением параллелизма через rateLimit.
@@ -48,7 +48,7 @@ func (a *Agent) Run(ctx context.Context) {
 	jobsCh := make(chan []*models.Metrics, a.rateLimit)
 
 	for i := 0; i < a.rateLimit; i++ {
-		go a.worker(jobsCh)
+		go a.worker(ctx, jobsCh)
 	}
 
 	for {
@@ -71,10 +71,10 @@ func (a *Agent) Run(ctx context.Context) {
 	}
 }
 
-func (a *Agent) worker(jobs <-chan []*models.Metrics) {
+func (a *Agent) worker(ctx context.Context, jobs <-chan []*models.Metrics) {
 	for metrics := range jobs {
 		logger.Log.Info("Sending metrics %v", logger.Field("metrics", metrics[0]))
-		err := a.sender.SendJSONWithRetries(metrics...)
+		err := a.sender.SendJSONWithRetries(ctx, metrics...)
 		if err != nil {
 			logger.Log.Error("error sending metrics: %v", logger.Err(err))
 		}
